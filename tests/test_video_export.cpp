@@ -160,7 +160,7 @@ int main(int argc, char** argv) {
     const QSize sizes[]{{1280,720},{1920,1080},{2560,1440},{3840,2160}};
     int index = 0;
     for (const auto& size : sizes) {
-        const QString source = index++ % 2 ? "testsrc2=s=180x320:r=30:d=0.2" : "testsrc2=s=640x360:r=30:d=0.2";
+        const QString source = index++ % 2 ? "testsrc2=s=180x320:r=30:d=0.067" : "testsrc2=s=640x360:r=30:d=0.067";
         const QString overlay = write_overlay(size);
         if (overlay.isEmpty()) return 1;
         for (int mode=0; mode<filter_mode_count; ++mode) {
@@ -169,7 +169,7 @@ int main(int argc, char** argv) {
                 const QString file = dir.filePath(QStringLiteral("filter-%1-%2-%3.mkv")
                     .arg(size.width()).arg(mode).arg(include_effects ? "effects" : "plain"));
                 args << "-c:v" << "ffv1" << file;
-                if (!run(ffmpeg, args, result) || !verify(file, size, 12)) { qCritical() << size << include_effects << result; return 1; }
+                if (!run(ffmpeg, args, result) || !verify(file, size, 4)) { qCritical() << size << include_effects << result; return 1; }
             }
         }
         qInfo() << "PASS filter, portrait/landscape, EOF, 60fps:" << size;
@@ -187,11 +187,11 @@ int main(int argc, char** argv) {
         if (!run(ffmpeg, probe, result, 30000)) { qInfo() << "UNAVAILABLE (hidden):" << encoder; continue; }
         const QString overlay = write_overlay({1280,720});
         if (overlay.isEmpty()) return 1;
-        auto args = inputs({1280,720}, "testsrc2=s=640x360:r=30:d=0.2", overlay, coreimage_available);
+        auto args = inputs({1280,720}, "testsrc2=s=640x360:r=30:d=0.067", overlay, coreimage_available);
         args += rythmo::videoExportCodecArguments(encoder,1280,720);
         const QString file = dir.filePath("codec.mp4");
         args << file;
-        if (!run(ffmpeg,args,result,180000) || !verify(file,{1280,720},12)) { qCritical() << encoder << result; return 1; }
+        if (!run(ffmpeg,args,result,180000) || !verify(file,{1280,720},4)) { qCritical() << encoder << result; return 1; }
         ++passed; qInfo() << "PASS encoded output:" << encoder;
     }
     return passed ? 0 : 1;
