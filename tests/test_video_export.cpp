@@ -86,7 +86,11 @@ int main(int argc, char** argv) {
     coreimage_available = run(ffmpeg,{"-hide_banner","-loglevel","error","-f","lavfi","-i",
         "color=c=black:s=160x90:d=0.1","-vf",probe_chain,"-frames:v","1","-f","null","-"},result,10000);
 #endif
+#ifdef RYTHMO_TEST_SMOKE
+    const bool ci_smoke = true;
+#else
     const bool ci_smoke = qEnvironmentVariableIsSet("CI") || qEnvironmentVariableIsSet("GITHUB_ACTIONS");
+#endif
     const bool filter_modes[] = {false, coreimage_available};
     const int filter_mode_count = coreimage_available ? 2 : 1;
     const auto verify = [&](const QString& output, QSize size, int frames) {
