@@ -110,7 +110,7 @@ int main(int argc, char** argv) {
         const QSize canvas(size.width(), size.height()*3/5);
         QStringList args{"-nostdin", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", source};
         if (include_effects) {
-            args << "-f" << "rawvideo" << "-pixel_format" << "rgba" << "-video_size"
+            args << "-stream_loop" << "-1" << "-f" << "rawvideo" << "-pixel_format" << "rgba" << "-video_size"
                  << QStringLiteral("%1x%2").arg(canvas.width()).arg(canvas.height())
                  << "-framerate" << "60/1" << "-i" << overlay;
         }

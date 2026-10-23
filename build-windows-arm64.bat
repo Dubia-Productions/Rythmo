@@ -42,7 +42,7 @@ call :install_vcpkg
 if errorlevel 1 exit /b 1
 call :vs_env ARM64
 if errorlevel 1 exit /b 1
-cmake -S "%ROOT%" -B "%BUILD_DIR%" -A ARM64 -DCMAKE_TOOLCHAIN_FILE="%VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=arm64-windows -DCMAKE_PREFIX_PATH="%QT_ROOT%" -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -DRYTHMO_VERSION="%RYTHMO_VERSION%"
+cmake -S "%ROOT%" -B "%BUILD_DIR%" -A ARM64 "-DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=arm64-windows -DCMAKE_PREFIX_PATH="%QT_ROOT%" -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -DRYTHMO_VERSION="%RYTHMO_VERSION%"
 if errorlevel 1 exit /b 1
 cmake --build "%BUILD_DIR%" --config Release --parallel
 if errorlevel 1 exit /b 1
@@ -82,5 +82,8 @@ if not exist "%VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake" git clone https://g
 if errorlevel 1 exit /b 1
 if not exist "%VCPKG_ROOT%\vcpkg.exe" call "%VCPKG_ROOT%\bootstrap-vcpkg.bat" -disableMetrics
 if errorlevel 1 exit /b 1
-"%VCPKG_ROOT%\vcpkg.exe" install --classic expat:arm64-windows
-exit /b %errorlevel%
+pushd "%ROOT%" || exit /b 1
+"%VCPKG_ROOT%\vcpkg.exe" install --triplet arm64-windows
+set "VCPKG_RC=%errorlevel%"
+popd
+exit /b %VCPKG_RC%
