@@ -144,16 +144,20 @@ int main(int argc, char** argv) {
                                    static_cast<qint64>(pixels.sizeInBytes())) !=
                     static_cast<qint64>(pixels.sizeInBytes()) || !overlay_file.flush()) return 1;
             overlay_file.close();
+            const QString composite_path = dir.filePath(QStringLiteral("fullscreen-%1-%2.rgb").arg(mode).arg(enabled ? "shadow" : "plain"));
             QStringList args{"-nostdin","-v","error","-f","lavfi","-i","color=white:s=640x360:r=30:d=0.1",
                 "-f","rawvideo","-pixel_format","rgba","-video_size","1280x432","-framerate","60/1","-i",overlay_path,
                 "-f","lavfi","-i","color=black:s=1280x288:r=60:d=0.1",
                 "-filter_complex",rythmo::videoExportFilter(1280,432,"60/1",filter_modes[mode]),"-map","[v]","-frames:v","1",
-                "-pix_fmt","rgb24","-f","rawvideo","-"};
-            if (!run(ffmpeg,args,result) || result.size()!=1280*720*3) {
+                "-pix_fmt","rgb24","-f","rawvideo",composite_path};
+            QFile composite_file(composite_path);
+            if (!run(ffmpeg,args,result) || !composite_file.open(QIODevice::ReadOnly) || composite_file.size()!=1280*720*3) {
                 qCritical()<<"Fullscreen overlay export test failed"<<result.left(1000);
                 return 1;
             }
-            (enabled ? encoded_shadow : encoded_plain) = result;
+            const QByteArray composite_pixels = composite_file.readAll();
+            if (composite_pixels.size()!=1280*720*3) return 1;
+            (enabled ? encoded_shadow : encoded_plain) = composite_pixels;
         }
         const int left_shadow = red(encoded_plain,255) - red(encoded_shadow,255);
         const int right_shadow = red(encoded_plain,1024) - red(encoded_shadow,1024);
