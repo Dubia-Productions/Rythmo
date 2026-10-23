@@ -53,7 +53,12 @@ if(WIN32)
   endif()
 endif()
 if(APPLE)
+  # The plist names this icon; include the ICNS in Contents/Resources so
+  # Finder and Launch Services can load it from the application bundle.
+  set_source_files_properties(resources/Rythmo.icns PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+  target_sources(rythmo-app PRIVATE resources/Rythmo.icns)
   set_target_properties(rythmo-app PROPERTIES
+    MACOSX_BUNDLE_ICON_FILE "Rythmo.icns"
     MACOSX_BUNDLE TRUE
     MACOSX_BUNDLE_GUI_IDENTIFIER "com.dubiaproductions.rythmo"
     MACOSX_BUNDLE_BUNDLE_NAME "Rythmo"
