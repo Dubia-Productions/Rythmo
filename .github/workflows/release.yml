@@ -155,7 +155,20 @@ jobs:
           codesign --verify --deep --strict "$app"
           if [ "$artifact_arch" = intel ]; then release_arch=x64; else release_arch=arm64; fi
           ditto -c -k --sequesterRsrc --keepParent "$app" "Rythmo-macos-$release_arch-portable.zip"
-          hdiutil create -volname "Rythmo $release_arch $GITHUB_RUN_ID" -srcfolder "$app" -ov -format UDZO "Rythmo-macos-$release_arch-setup.dmg"
+          dmg_output="Rythmo-macos-$release_arch-setup.dmg"
+  dmg_created=false
+  for attempt in 1 2 3; do
+    dmg_temp="Rythmo-macos-$release_arch-setup-$GITHUB_RUN_ID-$attempt.dmg"
+    rm -f "$dmg_temp"
+    if hdiutil create -volname "Rythmo $release_arch $GITHUB_RUN_ID" -srcfolder "$app" -ov -format UDZO "$dmg_temp"; then
+      mv "$dmg_temp" "$dmg_output"
+      dmg_created=true
+      break
+    fi
+    rm -f "$dmg_temp"
+    [ "$attempt" -eq 3 ] || sleep 10
+  done
+  [ "$dmg_created" = true ] || { echo "Could not create macOS installer DMG after 3 attempts." >&2; exit 1; }
 
       - name: Prepare Linux packages
         if: runner.os == 'Linux'
