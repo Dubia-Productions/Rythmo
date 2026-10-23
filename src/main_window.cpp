@@ -1814,6 +1814,7 @@ void MainWindow::openVoiceSeparation() {
                       << (arm64_runtime ? QStringLiteral("onnxruntime") : QStringLiteral("onnxruntime==1.20.1"))
                       << QStringLiteral("packaging") << QStringLiteral("pydub>=0.25")
                       << QStringLiteral("pyyaml") << QStringLiteral("requests>=2") << QStringLiteral("resampy>=0.4")
+                      << QStringLiteral("numba==0.68.0") << QStringLiteral("llvmlite==0.50.0")
                       << QStringLiteral("rotary-embedding-torch>=0.6.1,<0.7.0") << QStringLiteral("samplerate==0.1.0")
                       << QStringLiteral("scipy>=1.13,<2.0.0") << QStringLiteral("six>=1.16")
                       << QStringLiteral("tqdm") << QStringLiteral("audioread==3.0.1") << QStringLiteral("coloredlogs==15.0.1");
@@ -1868,6 +1869,7 @@ void MainWindow::openVoiceSeparation() {
                       << QStringLiteral("onnxruntime") << QStringLiteral("packaging")
                       << QStringLiteral("pydub>=0.25") << QStringLiteral("pyyaml")
                       << QStringLiteral("requests>=2") << QStringLiteral("resampy>=0.4")
+                      << QStringLiteral("numba==0.68.0") << QStringLiteral("llvmlite==0.50.0")
                       << QStringLiteral("rotary-embedding-torch>=0.6.1,<0.7.0")
                       << QStringLiteral("samplerate==0.1.0") << QStringLiteral("scipy>=1.13,<2.0.0")
                       << QStringLiteral("six>=1.16") << QStringLiteral("tqdm")
@@ -2355,14 +2357,14 @@ void MainWindow::openVoiceSeparation() {
                 start_roformer_install();
             } else if (completed_stage == StageInstallRoformer) {
                 start_runtime_process(StageCheckRoformer, python_exe,
-                    {QStringLiteral("-c"), QStringLiteral("import importlib.metadata as md, platform, sys; from packaging.version import Version; import torch; v=Version(md.version('audio-separator')); t=Version(torch.__version__.split('+')[0]); assert v >= Version('0.47.0'); assert platform.system() != 'Darwin' or platform.machine().lower() not in ('arm64','aarch64') or t >= Version('2.13'); import audioread, librosa, onnxruntime, resampy, samplerate, soundfile; from audio_separator.separator import Separator; print('Moteur RoFormer prêt')")},
+                    {QStringLiteral("-c"), QStringLiteral("import importlib.metadata as md, platform, sys; from packaging.version import Version; import torch; v=Version(md.version('audio-separator')); t=Version(torch.__version__.split('+')[0]); assert v >= Version('0.47.0'); assert platform.system() != 'Darwin' or platform.machine().lower() not in ('arm64','aarch64') or t >= Version('2.13'); import audioread, librosa, numba, llvmlite, onnxruntime, resampy, samplerate, soundfile; from audio_separator.separator import Separator; print('Moteur RoFormer prêt')")},
                     QStringLiteral("Vérification du moteur RoFormer local…"));
             } else if (completed_stage == StageCheckRoformer) {
                 QDir(QDir(runtime_root).filePath(QStringLiteral("pip-cache"))).removeRecursively();
                 start_next_extract();
             } else if (completed_stage == StageCheckRuntime) {
                 start_runtime_process(StageCheckRoformer, python_exe,
-                    {QStringLiteral("-c"), QStringLiteral("import importlib.metadata as md, platform, sys; from packaging.version import Version; import torch; v=Version(md.version('audio-separator')); t=Version(torch.__version__.split('+')[0]); assert v >= Version('0.47.0'); assert platform.system() != 'Darwin' or platform.machine().lower() not in ('arm64','aarch64') or t >= Version('2.13'); import audioread, librosa, onnxruntime, resampy, samplerate, soundfile; from audio_separator.separator import Separator; print('Moteur RoFormer prêt')")},
+                    {QStringLiteral("-c"), QStringLiteral("import importlib.metadata as md, platform, sys; from packaging.version import Version; import torch; v=Version(md.version('audio-separator')); t=Version(torch.__version__.split('+')[0]); assert v >= Version('0.47.0'); assert platform.system() != 'Darwin' or platform.machine().lower() not in ('arm64','aarch64') or t >= Version('2.13'); import audioread, librosa, numba, llvmlite, onnxruntime, resampy, samplerate, soundfile; from audio_separator.separator import Separator; print('Moteur RoFormer prêt')")},
                     QStringLiteral("Vérification du moteur RoFormer local…"));
             } else if (completed_stage == StageRunWorker) {
                 QFile manifest_file(QDir(job_temp.path()).filePath(QStringLiteral("manifest.json")));
