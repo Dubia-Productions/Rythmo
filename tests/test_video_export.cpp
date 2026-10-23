@@ -171,8 +171,16 @@ int main(int argc, char** argv) {
                 auto args = inputs(size, source, overlay, filter_modes[mode], include_effects);
                 const QString file = dir.filePath(QStringLiteral("filter-%1-%2-%3.mkv")
                     .arg(size.width()).arg(mode).arg(include_effects ? "effects" : "plain"));
-                args << "-frames:v" << "2" << "-c:v" << "ffv1" << file;
-                if (!run(ffmpeg, args, result) || !verify(file, size, 2)) { qCritical() << size << include_effects << result; return 1; }
+                if (ci_smoke) {
+                    args << "-frames:v" << "1" << "-f" << "null" << "-";
+                    if (!run(ffmpeg, args, result)) { qCritical() << size << include_effects << result; return 1; }
+                } else {
+                    args << "-frames:v" << "2" << "-c:v" << "ffv1" << file;
+                    if (!run(ffmpeg, args, result) || !verify(file, size, 2)) {
+                        qCritical() << size << include_effects << result;
+                        return 1;
+                    }
+                }
             }
         }
         qInfo() << "PASS filter, portrait/landscape, EOF, 60fps:" << size;
@@ -192,12 +200,13 @@ int main(int argc, char** argv) {
     const QSize codec_size = ci_smoke ? QSize(320,180) : QSize(1280,720);
     const QString codec_source = QStringLiteral("testsrc2=s=%1x%2:r=30:d=0.067")
         .arg(codec_size.width()/2).arg(codec_size.height()/2);
+    const int codec_frames = ci_smoke ? 1 : 2;
     int passed = 0;
     for (const auto& encoder : encoders) {
         const QString probe_source = QStringLiteral("color=s=%1x%2:r=60")
             .arg(codec_size.width()).arg(codec_size.height());
         QStringList probe{"-nostdin", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", probe_source,
-            "-frames:v", "2", "-pix_fmt", "yuv420p"};
+            "-frames:v", QString::number(codec_frames), "-pix_fmt", "yuv420p"};
         probe += rythmo::videoExportCodecArguments(encoder,codec_size.width(),codec_size.height());
         probe << dir.filePath("probe.mp4");
         if (!run(ffmpeg, probe, result, 30000)) { qInfo() << "UNAVAILABLE (hidden):" << encoder; continue; }
@@ -206,8 +215,8 @@ int main(int argc, char** argv) {
         auto args = inputs(codec_size, codec_source, overlay, coreimage_available);
         args += rythmo::videoExportCodecArguments(encoder,codec_size.width(),codec_size.height());
         const QString file = dir.filePath("codec.mp4");
-        args << "-frames:v" << "2" << file;
-        if (!run(ffmpeg,args,result,180000) || !verify(file,codec_size,2)) { qCritical() << encoder << result; return 1; }
+        args << "-frames:v" << QString::number(codec_frames) << file;
+        if (!run(ffmpeg,args,result,180000) || !verify(file,codec_size,codec_frames)) { qCritical() << encoder << result; return 1; }
         ++passed; qInfo() << "PASS encoded output:" << encoder;
         if (ci_smoke) break;
     }
