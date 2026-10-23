@@ -125,13 +125,13 @@ jobs:
           if [ "$arch_name" = arm64 ]; then build=build/release-linux-arm64; deb_arch=arm64; else build=build/release-linux-x64; deb_arch=amd64; fi
           mkdir -p "package/Rythmo-linux-$arch_name" "package/deb/DEBIAN" "package/deb/usr/bin"
           install -m 755 "$build/Rythmo" "package/Rythmo-linux-$arch_name/Rythmo"
-          install -m 644 resources/rythmo-icon.png "package/Rythmo-linux-$arch_name/rythmo-icon.png"
+          install -m 644 resources/RYTHMO_LOGO_PNG-ROUNDED.png "package/Rythmo-linux-$arch_name/rythmo-icon.png"
           install -m 644 packaging/linux/rythmo.desktop "package/Rythmo-linux-$arch_name/rythmo.desktop"
           tar -C package -czf "Rythmo-linux-$arch_name-portable.tar.gz" "Rythmo-linux-$arch_name"
           install -m 755 "$build/Rythmo" package/deb/usr/bin/Rythmo
           mkdir -p package/deb/usr/share/applications package/deb/usr/share/icons/hicolor/512x512/apps
           install -m 644 packaging/linux/rythmo.desktop package/deb/usr/share/applications/rythmo.desktop
-          install -m 644 resources/rythmo-icon.png package/deb/usr/share/icons/hicolor/512x512/apps/rythmo.png
+          install -m 644 resources/RYTHMO_LOGO_PNG-ROUNDED.png package/deb/usr/share/icons/hicolor/512x512/apps/rythmo.png
           printf 'Package: rythmo\nVersion: %s\nArchitecture: %s\nMaintainer: Dubia Productions\nDepends: libc6, libexpat1, libqt6core6, libqt6gui6, libqt6widgets6, libqt6multimedia6, libqt6multimediawidgets6, ffmpeg\nDescription: Rythmo dubbing cue sheet and local voice separation\n' "$RYTHMO_VERSION" "$deb_arch" > package/deb/DEBIAN/control
           dpkg-deb --build package/deb "Rythmo-linux-$arch_name-setup.deb"
 
