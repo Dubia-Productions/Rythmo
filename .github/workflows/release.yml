@@ -82,7 +82,6 @@ jobs:
           if ($arch -eq 'x64') { $app = Join-Path $PWD 'dist/Rythmo-by-Dubia-Productions-windows-x64-v8' }
           else { $app = Join-Path $PWD 'build/release-windows-arm64/Release' }
           New-Item -ItemType Directory -Force -Path $app | Out-Null
-          if ($arch -eq 'arm64') { Copy-Item 'build/release-windows-arm64/Release/Rythmo.exe' $app -Force }
           $qtArch = if ($arch -eq 'x64') { 'msvc2022_64' } else { 'msvc2022_arm64' }
           $deployPath = Join-Path $env:USERPROFILE "Qt/6.8.3/$qtArch/bin/windeployqt.exe"
           if (-not (Test-Path -LiteralPath $deployPath)) { $deployPath = "C:/Qt/6.8.3/$qtArch/bin/windeployqt.exe" }
