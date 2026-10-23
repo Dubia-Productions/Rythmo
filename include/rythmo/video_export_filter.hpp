@@ -97,7 +97,7 @@ inline QString videoExportFilter(int width, int video_height,
         // the completed picture to 60 fps before stacking the 60 fps rhythm band.
         "[0:v]split=2[bgsrc][fgsrc];"
         "[bgsrc]%3[bgblur];"
-        "[bgblur][1:v]overlay=x=0:y=0:format=auto[bg];"
+        "[bgblur][1:v]overlay=x=0:y=0:format=auto:shortest=1[bg];"
         "[fgsrc]scale=%2:force_original_aspect_ratio=decrease,format=rgba,"
         "pad=%2:(ow-iw)/2:(oh-ih)/2:color=black@0[fg];"
         "[bg][fg]overlay=x=0:y=0:format=auto,setsar=1,format=yuv420p,fps=%1[v0];"
