@@ -53,10 +53,43 @@ if(WIN32)
   endif()
 endif()
 if(APPLE)
-  # The plist names this icon; include the ICNS in Contents/Resources so
-  # Finder and Launch Services can load it from the application bundle.
-  set_source_files_properties(resources/Rythmo.icns PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
-  target_sources(rythmo-app PRIVATE resources/Rythmo.icns)
+  # Generate the native bundle icon from the tracked PNG on the Mac builder.
+  find_program(RYTHMO_SIPS sips REQUIRED)
+  find_program(RYTHMO_ICONUTIL iconutil REQUIRED)
+  set(RYTHMO_ICONSET "${CMAKE_CURRENT_BINARY_DIR}/Rythmo.iconset")
+  file(MAKE_DIRECTORY "${RYTHMO_ICONSET}")
+  foreach(icon_spec IN ITEMS
+      "16;16;icon_16x16.png"
+      "32;16;icon_16x16@2x.png"
+      "32;32;icon_32x32.png"
+      "64;32;icon_32x32@2x.png"
+      "128;128;icon_128x128.png"
+      "256;128;icon_128x128@2x.png"
+      "256;256;icon_256x256.png"
+      "512;256;icon_256x256@2x.png"
+      "512;512;icon_512x512.png"
+      "1024;512;icon_512x512@2x.png")
+    list(GET icon_spec 0 icon_px)
+    list(GET icon_spec 1 icon_points)
+    list(GET icon_spec 2 icon_name)
+    execute_process(
+      COMMAND "${RYTHMO_SIPS}" -z "${icon_px}" "${icon_px}"
+              "${CMAKE_CURRENT_SOURCE_DIR}/resources/rythmo-icon.png"
+              --out "${RYTHMO_ICONSET}/${icon_name}"
+      RESULT_VARIABLE icon_resize_result
+      OUTPUT_QUIET ERROR_VARIABLE icon_resize_error)
+    if(NOT icon_resize_result EQUAL 0)
+      message(FATAL_ERROR "Failed to create macOS icon ${icon_name}: ${icon_resize_error}")
+    endif()
+  endforeach()
+  set(RYTHMO_ICNS "${CMAKE_CURRENT_BINARY_DIR}/Rythmo.icns")
+  execute_process(COMMAND "${RYTHMO_ICONUTIL}" -c icns "${RYTHMO_ICONSET}" -o "${RYTHMO_ICNS}"
+                  RESULT_VARIABLE icon_build_result ERROR_VARIABLE icon_build_error)
+  if(NOT icon_build_result EQUAL 0)
+    message(FATAL_ERROR "Failed to build macOS ICNS: ${icon_build_error}")
+  endif()
+  set_source_files_properties("${RYTHMO_ICNS}" PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+  target_sources(rythmo-app PRIVATE "${RYTHMO_ICNS}")
   set_target_properties(rythmo-app PROPERTIES
     MACOSX_BUNDLE_ICON_FILE "Rythmo.icns"
     MACOSX_BUNDLE TRUE
