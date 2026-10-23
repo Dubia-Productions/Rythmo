@@ -86,6 +86,7 @@ int main(int argc, char** argv) {
     coreimage_available = run(ffmpeg,{"-hide_banner","-loglevel","error","-f","lavfi","-i",
         "color=c=black:s=160x90:d=0.1","-vf",probe_chain,"-frames:v","1","-f","null","-"},result,10000);
 #endif
+    const bool ci_smoke = qEnvironmentVariableIsSet("CI");
     const bool filter_modes[] = {false, coreimage_available};
     const int filter_mode_count = coreimage_available ? 2 : 1;
     const auto verify = [&](const QString& output, QSize size, int frames) {
@@ -164,7 +165,9 @@ int main(int argc, char** argv) {
         const QString overlay = write_overlay(size);
         if (overlay.isEmpty()) return 1;
         for (int mode=0; mode<filter_mode_count; ++mode) {
-            for (bool include_effects : {false, true}) {
+            const int effect_mode_count = ci_smoke && size != sizes[0] ? 1 : 2;
+            for (int effect_index = 0; effect_index < effect_mode_count; ++effect_index) {
+                const bool include_effects = effect_mode_count == 1 || effect_index == 1;
                 auto args = inputs(size, source, overlay, filter_modes[mode], include_effects);
                 const QString file = dir.filePath(QStringLiteral("filter-%1-%2-%3.mkv")
                     .arg(size.width()).arg(mode).arg(include_effects ? "effects" : "plain"));
@@ -183,23 +186,30 @@ int main(int argc, char** argv) {
 
     // Exercise real installed engines. Unavailable GPU drivers must fail the
     // same real-encode probe as the menu, even if FFmpeg lists that encoder.
-    const QStringList encoders{"libx264", "libx265", "libsvtav1", "libaom-av1", "h264_nvenc", "hevc_nvenc", "av1_nvenc",
+    QStringList encoders{"libx264", "libx265", "libsvtav1", "libaom-av1", "h264_nvenc", "hevc_nvenc", "av1_nvenc",
         "h264_qsv", "hevc_qsv", "av1_qsv", "h264_amf", "hevc_amf", "av1_amf", "h264_videotoolbox", "hevc_videotoolbox"};
+    if (ci_smoke) encoders = {"libx264", "libx265", "libsvtav1", "libaom-av1"};
+    const QSize codec_size = ci_smoke ? QSize(320,180) : QSize(1280,720);
+    const QString codec_source = QStringLiteral("testsrc2=s=%1x%2:r=30:d=0.067")
+        .arg(codec_size.width()/2).arg(codec_size.height()/2);
     int passed = 0;
     for (const auto& encoder : encoders) {
-        QStringList probe{"-nostdin", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "color=s=1280x720:r=60",
+        const QString probe_source = QStringLiteral("color=s=%1x%2:r=60")
+            .arg(codec_size.width()).arg(codec_size.height());
+        QStringList probe{"-nostdin", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", probe_source,
             "-frames:v", "2", "-pix_fmt", "yuv420p"};
-        probe += rythmo::videoExportCodecArguments(encoder,1280,720);
+        probe += rythmo::videoExportCodecArguments(encoder,codec_size.width(),codec_size.height());
         probe << dir.filePath("probe.mp4");
         if (!run(ffmpeg, probe, result, 30000)) { qInfo() << "UNAVAILABLE (hidden):" << encoder; continue; }
-        const QString overlay = write_overlay({1280,720});
+        const QString overlay = write_overlay(codec_size);
         if (overlay.isEmpty()) return 1;
-        auto args = inputs({1280,720}, "testsrc2=s=640x360:r=30:d=0.067", overlay, coreimage_available);
-        args += rythmo::videoExportCodecArguments(encoder,1280,720);
+        auto args = inputs(codec_size, codec_source, overlay, coreimage_available);
+        args += rythmo::videoExportCodecArguments(encoder,codec_size.width(),codec_size.height());
         const QString file = dir.filePath("codec.mp4");
         args << "-frames:v" << "2" << file;
-        if (!run(ffmpeg,args,result,180000) || !verify(file,{1280,720},2)) { qCritical() << encoder << result; return 1; }
+        if (!run(ffmpeg,args,result,180000) || !verify(file,codec_size,2)) { qCritical() << encoder << result; return 1; }
         ++passed; qInfo() << "PASS encoded output:" << encoder;
+        if (ci_smoke) break;
     }
     return passed ? 0 : 1;
 }
