@@ -1,5 +1,6 @@
 @echo off
 setlocal EnableExtensions
+set "RYTHMO_CI_SMOKE=%CI%"
 set "ROOT=%~dp0."
 set "BUILD_DIR=%ROOT%build\release-windows-arm64"
 set "QT_VERSION=6.8.3"
@@ -42,7 +43,7 @@ call :install_vcpkg
 if errorlevel 1 exit /b 1
 call :vs_env ARM64
 if errorlevel 1 exit /b 1
-cmake -S "%ROOT%" -B "%BUILD_DIR%" -A ARM64 "-DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=arm64-windows -DCMAKE_PREFIX_PATH="%QT_ROOT%" -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -DRYTHMO_VERSION="%RYTHMO_VERSION%"
+cmake -S "%ROOT%" -B "%BUILD_DIR%" -A ARM64 "-DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=arm64-windows -DCMAKE_PREFIX_PATH="%QT_ROOT%" -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -DRYTHMO_TEST_SMOKE="%RYTHMO_CI_SMOKE%" -DRYTHMO_VERSION="%RYTHMO_VERSION%"
 if errorlevel 1 exit /b 1
 cmake --build "%BUILD_DIR%" --config Release --parallel
 if errorlevel 1 exit /b 1
