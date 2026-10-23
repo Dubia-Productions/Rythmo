@@ -95,7 +95,7 @@ for (name, size) in sizes {
 ]=])
   execute_process(
     COMMAND "${RYTHMO_SWIFT}" "${RYTHMO_ICON_SCRIPT}"
-            "${CMAKE_CURRENT_SOURCE_DIR}/resources/rythmo-icon.png" "${RYTHMO_ICONSET}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/resources/RYTHMO_LOGO_PNG-ROUNDED.png" "${RYTHMO_ICONSET}"
     RESULT_VARIABLE icon_render_result ERROR_VARIABLE icon_render_error)
   if(NOT icon_render_result EQUAL 0)
     message(FATAL_ERROR "Failed to render macOS iconset: ${icon_render_error}")
