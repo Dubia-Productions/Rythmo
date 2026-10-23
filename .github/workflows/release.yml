@@ -83,9 +83,15 @@ jobs:
           else { $app = Join-Path $PWD 'build/release-windows-arm64/Release' }
           New-Item -ItemType Directory -Force -Path $app | Out-Null
           if ($arch -eq 'arm64') { Copy-Item 'build/release-windows-arm64/Release/Rythmo.exe' $app -Force }
-          $deploy = Get-ChildItem -Path @($env:USERPROFILE + '/Qt', 'C:/Qt') -Filter windeployqt.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-          if (-not $deploy) { throw 'windeployqt.exe was not found.' }
-          & $deploy.FullName --release --multimedia --multimediawidgets (Join-Path $app 'Rythmo.exe')
+          $qtArch = if ($arch -eq 'x64') { 'msvc2022_64' } else { 'msvc2022_arm64' }
+          $deployPath = Join-Path $env:USERPROFILE "Qt/6.8.3/$qtArch/bin/windeployqt.exe"
+          if (-not (Test-Path -LiteralPath $deployPath)) { $deployPath = "C:/Qt/6.8.3/$qtArch/bin/windeployqt.exe" }
+          if (-not (Test-Path -LiteralPath $deployPath)) {
+            $deployItem = Get-ChildItem -Path @((Join-Path $env:USERPROFILE 'Qt'), 'C:/Qt') -Filter windeployqt.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($deployItem) { $deployPath = $deployItem.FullName }
+          }
+          if (-not (Test-Path -LiteralPath $deployPath)) { throw "windeployqt.exe was not found for $qtArch." }
+          & $deployPath --release --multimedia --multimediawidgets (Join-Path $app 'Rythmo.exe')
           if ($LASTEXITCODE -ne 0) { throw 'windeployqt failed.' }
           $target = if ($arch -eq 'x64') { 'win64' } else { 'winarm64' }
           $archiveName = "ffmpeg-n9.0-latest-$target-gpl-9.0.zip"
