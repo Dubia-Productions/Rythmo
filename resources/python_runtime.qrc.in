@@ -1,0 +1,5 @@
+<RCC>
+  <qresource prefix="/runtime">
+    <file alias="python-runtime.tar.gz">@RYTHMO_PYTHON_RUNTIME_ARCHIVE@</file>
+  </qresource>
+</RCC>

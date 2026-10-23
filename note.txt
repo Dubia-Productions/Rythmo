@@ -1,0 +1,4 @@
+set "QT_ROOT=C:\Qt"
+set "VCPKG_ROOT=C:\src\vcpkg"
+Pour construire Rythmo, lancer build-all.bat sur Windows ou build.sh sur macOS/Linux.
+build-all.bat x64

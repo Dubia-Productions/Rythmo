@@ -1,0 +1,26 @@
+# Generated builds and portable distributions
+/build/
+/dist/
+/out/
+/cmake-build-*/
+
+# Downloaded model weights and runtime environments
+/checkpoints/
+**/checkpoints/
+**/*runtime*/
+*.safetensors
+*.ckpt
+*.pth
+*.pt
+*.onnx
+
+# Local tooling and diagnostics
+.vs/
+.idea/
+.vscode/
+*.user
+*.log
+diagnose-qt-plugins.log
+__pycache__/
+*.py[cod]
+
