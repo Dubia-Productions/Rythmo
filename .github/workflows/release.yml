@@ -16,11 +16,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: Windows x64
-            os: windows-latest
-            platform: windows
-            arch: x64
-            script: build-windows-x64.bat
           - name: macOS Apple Silicon
             os: macos-15
             platform: macos
