@@ -169,7 +169,7 @@ int main(int argc, char** argv) {
                 const QString file = dir.filePath(QStringLiteral("filter-%1-%2-%3.mkv")
                     .arg(size.width()).arg(mode).arg(include_effects ? "effects" : "plain"));
                 args << "-c:v" << "ffv1" << file;
-                if (!run(ffmpeg, args, result) || !verify(file, size, 4)) { qCritical() << size << include_effects << result; return 1; }
+                if (!run(ffmpeg, args, result) || !verify(file, size, 6)) { qCritical() << size << include_effects << result; return 1; }
             }
         }
         qInfo() << "PASS filter, portrait/landscape, EOF, 60fps:" << size;
@@ -191,7 +191,7 @@ int main(int argc, char** argv) {
         args += rythmo::videoExportCodecArguments(encoder,1280,720);
         const QString file = dir.filePath("codec.mp4");
         args << file;
-        if (!run(ffmpeg,args,result,180000) || !verify(file,{1280,720},4)) { qCritical() << encoder << result; return 1; }
+        if (!run(ffmpeg,args,result,180000) || !verify(file,{1280,720},6)) { qCritical() << encoder << result; return 1; }
         ++passed; qInfo() << "PASS encoded output:" << encoder;
     }
     return passed ? 0 : 1;
