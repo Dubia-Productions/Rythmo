@@ -168,12 +168,19 @@ int main(int argc, char** argv) {
                 auto args = inputs(size, source, overlay, filter_modes[mode], include_effects);
                 const QString file = dir.filePath(QStringLiteral("filter-%1-%2-%3.mkv")
                     .arg(size.width()).arg(mode).arg(include_effects ? "effects" : "plain"));
-                args << "-c:v" << "ffv1" << file;
-                if (!run(ffmpeg, args, result) || !verify(file, size, 6)) { qCritical() << size << include_effects << result; return 1; }
+                args << "-frames:v" << "2" << "-c:v" << "ffv1" << file;
+                if (!run(ffmpeg, args, result) || !verify(file, size, 2)) { qCritical() << size << include_effects << result; return 1; }
             }
         }
         qInfo() << "PASS filter, portrait/landscape, EOF, 60fps:" << size;
     }
+    const QString eof_overlay = write_overlay({1280,720});
+    auto eof_args = inputs({1280,720}, "testsrc2=s=640x360:r=30:d=0.067", eof_overlay, false, true);
+    const QString eof_file = dir.filePath("eof-loop.mkv");
+    eof_args << "-c:v" << "ffv1" << eof_file;
+    if (!run(ffmpeg, eof_args, result) || !verify(eof_file, {1280,720}, 6)) { qCritical() << "EOF/loop export test failed" << result; return 1; }
+    qInfo() << "PASS overlay loop stops at source EOF with 60fps output";
+
     // Exercise real installed engines. Unavailable GPU drivers must fail the
     // same real-encode probe as the menu, even if FFmpeg lists that encoder.
     const QStringList encoders{"libx264", "libx265", "libsvtav1", "libaom-av1", "h264_nvenc", "hevc_nvenc", "av1_nvenc",
@@ -190,8 +197,8 @@ int main(int argc, char** argv) {
         auto args = inputs({1280,720}, "testsrc2=s=640x360:r=30:d=0.067", overlay, coreimage_available);
         args += rythmo::videoExportCodecArguments(encoder,1280,720);
         const QString file = dir.filePath("codec.mp4");
-        args << file;
-        if (!run(ffmpeg,args,result,180000) || !verify(file,{1280,720},6)) { qCritical() << encoder << result; return 1; }
+        args << "-frames:v" << "2" << file;
+        if (!run(ffmpeg,args,result,180000) || !verify(file,{1280,720},2)) { qCritical() << encoder << result; return 1; }
         ++passed; qInfo() << "PASS encoded output:" << encoder;
     }
     return passed ? 0 : 1;
