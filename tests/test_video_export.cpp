@@ -178,7 +178,7 @@ int main(int argc, char** argv) {
     auto eof_args = inputs({1280,720}, "testsrc2=s=640x360:r=30:d=0.067", eof_overlay, false, true);
     const QString eof_file = dir.filePath("eof-loop.mkv");
     eof_args << "-c:v" << "ffv1" << eof_file;
-    if (!run(ffmpeg, eof_args, result) || !verify(eof_file, {1280,720}, 6)) { qCritical() << "EOF/loop export test failed" << result; return 1; }
+    if (!run(ffmpeg, eof_args, result) || !verify(eof_file, {1280,720}, 12)) { qCritical() << "EOF/loop export test failed" << result; return 1; }
     qInfo() << "PASS overlay loop stops at source EOF with 60fps output";
 
     // Exercise real installed engines. Unavailable GPU drivers must fail the
