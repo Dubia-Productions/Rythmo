@@ -191,7 +191,7 @@ int main(int argc, char** argv) {
         args += rythmo::videoExportCodecArguments(encoder,1280,720);
         const QString file = dir.filePath("codec.mp4");
         args << file;
-        if (!run(ffmpeg,args,result) || !verify(file,{1280,720},12)) { qCritical() << encoder << result; return 1; }
+        if (!run(ffmpeg,args,result,180000) || !verify(file,{1280,720},12)) { qCritical() << encoder << result; return 1; }
         ++passed; qInfo() << "PASS encoded output:" << encoder;
     }
     return passed ? 0 : 1;

@@ -115,7 +115,7 @@ jobs:
           codesign --verify --deep --strict "$app"
           if [ "$artifact_arch" = intel ]; then release_arch=x64; else release_arch=arm64; fi
           ditto -c -k --sequesterRsrc --keepParent "$app" "Rythmo-macos-$release_arch-portable.zip"
-          hdiutil create -volname Rythmo -srcfolder "$app" -ov -format UDZO "Rythmo-macos-$release_arch-setup.dmg"
+          hdiutil create -volname "Rythmo $release_arch $GITHUB_RUN_ID" -srcfolder "$app" -ov -format UDZO "Rythmo-macos-$release_arch-setup.dmg"
 
       - name: Prepare Linux packages
         if: runner.os == 'Linux'
