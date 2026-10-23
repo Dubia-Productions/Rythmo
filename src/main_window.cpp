@@ -1861,7 +1861,7 @@ void MainWindow::openVoiceSeparation() {
             // Repair older Apple Silicon runtimes that contain the main
             // package but are missing this import-time dependency.
             arguments << QStringLiteral("librosa>=0.10") << QStringLiteral("lazy_loader>=0.1")
-                      << QStringLiteral("audio-separator==0.47.0");
+                      << QStringLiteral("onnxruntime") << QStringLiteral("audio-separator==0.47.0");
         } else
 #endif
         {
@@ -2344,7 +2344,7 @@ void MainWindow::openVoiceSeparation() {
                 start_roformer_install();
             } else if (completed_stage == StageInstallRoformer) {
                 start_runtime_process(StageCheckRoformer, python_exe,
-                    {QStringLiteral("-c"), QStringLiteral("import importlib.metadata as md, platform, sys; from packaging.version import Version; import torch; v=Version(md.version('audio-separator')); t=Version(torch.__version__.split('+')[0]); assert v >= Version('0.47.0'); assert platform.system() != 'Darwin' or platform.machine().lower() not in ('arm64','aarch64') or t >= Version('2.13'); from audio_separator.separator import Separator; print('Moteur RoFormer prêt')")},
+                    {QStringLiteral("-c"), QStringLiteral("import importlib.metadata as md, platform, sys; from packaging.version import Version; import torch; v=Version(md.version('audio-separator')); t=Version(torch.__version__.split('+')[0]); assert v >= Version('0.47.0'); assert platform.system() != 'Darwin' or platform.machine().lower() not in ('arm64','aarch64') or t >= Version('2.13'); import onnxruntime; from audio_separator.separator import Separator; print('Moteur RoFormer prêt')")},
                     QStringLiteral("Vérification du moteur RoFormer local…"));
             } else if (completed_stage == StageCheckRoformer) {
                 QDir(QDir(runtime_root).filePath(QStringLiteral("pip-cache"))).removeRecursively();
