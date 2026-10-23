@@ -106,14 +106,11 @@ jobs:
         run: |
           arch_name='${{ matrix.arch }}'
           if [ "$arch_name" = intel ]; then artifact_arch=intel; else artifact_arch=arm64; fi
-          app="build/release-macos-$artifact_arch/Rythmo.app"
+          app="$HOME/Library/Caches/Rythmo/build/release-macos-$artifact_arch/Rythmo.app"
           test -d "$app"
           ffmpeg_bin="$(brew --prefix ffmpeg)/bin"
           install -m 755 "$ffmpeg_bin/ffmpeg" "$app/Contents/MacOS/ffmpeg"
           install -m 755 "$ffmpeg_bin/ffprobe" "$app/Contents/MacOS/ffprobe"
-          find "$app/Contents" -type f \( -name "*.dylib" -o -name ffmpeg -o -name ffprobe -o -name Rythmo \) -print0 | while IFS= read -r -d "" binary; do
-            codesign --force --sign - --timestamp=none "$binary"
-          done
           codesign --force --deep --sign - --timestamp=none "$app"
           codesign --verify --deep --strict "$app"
           if [ "$artifact_arch" = intel ]; then release_arch=x64; else release_arch=arm64; fi
@@ -161,3 +158,4 @@ jobs:
         with:
           files: Rythmo-*
           fail_on_unmatched_files: true
+
