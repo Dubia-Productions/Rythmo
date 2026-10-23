@@ -53,35 +53,51 @@ if(WIN32)
   endif()
 endif()
 if(APPLE)
-  # Generate the native bundle icon from the tracked PNG on the Mac builder.
-  find_program(RYTHMO_SIPS sips REQUIRED)
+  # Render native iconset sizes with AppKit, then package them as ICNS.
+  find_program(RYTHMO_SWIFT swift REQUIRED)
   find_program(RYTHMO_ICONUTIL iconutil REQUIRED)
   set(RYTHMO_ICONSET "${CMAKE_CURRENT_BINARY_DIR}/Rythmo.iconset")
   file(MAKE_DIRECTORY "${RYTHMO_ICONSET}")
-  foreach(icon_spec IN ITEMS
-      "16;16;icon_16x16.png"
-      "32;16;icon_16x16@2x.png"
-      "32;32;icon_32x32.png"
-      "64;32;icon_32x32@2x.png"
-      "128;128;icon_128x128.png"
-      "256;128;icon_128x128@2x.png"
-      "256;256;icon_256x256.png"
-      "512;256;icon_256x256@2x.png"
-      "512;512;icon_512x512.png"
-      "1024;512;icon_512x512@2x.png")
-    list(GET icon_spec 0 icon_px)
-    list(GET icon_spec 1 icon_points)
-    list(GET icon_spec 2 icon_name)
-    execute_process(
-      COMMAND "${RYTHMO_SIPS}" -z "${icon_px}" "${icon_px}"
-              "${CMAKE_CURRENT_SOURCE_DIR}/resources/rythmo-icon.png"
-              --out "${RYTHMO_ICONSET}/${icon_name}"
-      RESULT_VARIABLE icon_resize_result
-      OUTPUT_QUIET ERROR_VARIABLE icon_resize_error)
-    if(NOT icon_resize_result EQUAL 0)
-      message(FATAL_ERROR "Failed to create macOS icon ${icon_name}: ${icon_resize_error}")
-    endif()
-  endforeach()
+  set(RYTHMO_ICON_SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/make_rythmo_icon.swift")
+  file(WRITE "${RYTHMO_ICON_SCRIPT}" [=[
+import AppKit
+import Foundation
+let source = CommandLine.arguments[1]
+let directory = CommandLine.arguments[2]
+guard let image = NSImage(contentsOfFile: source) else { fatalError("Cannot open Rythmo PNG icon") }
+let sizes: [(String, Int)] = [
+  ("icon_16x16.png", 16), ("icon_16x16@2x.png", 32),
+  ("icon_32x32.png", 32), ("icon_32x32@2x.png", 64),
+  ("icon_128x128.png", 128), ("icon_128x128@2x.png", 256),
+  ("icon_256x256.png", 256), ("icon_256x256@2x.png", 512),
+  ("icon_512x512.png", 512), ("icon_512x512@2x.png", 1024)
+]
+for (name, size) in sizes {
+  guard let bitmap = NSBitmapImageRep(
+    bitmapDataPlanes: nil, pixelsWide: size, pixelsHigh: size,
+    bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
+    isPlanar: false, colorSpaceName: .deviceRGB,
+    bytesPerRow: 0, bitsPerPixel: 0
+  ) else { fatalError("Cannot allocate icon bitmap") }
+  NSGraphicsContext.saveGraphicsState()
+  NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
+  NSGraphicsContext.current?.imageInterpolation = .high
+  image.draw(in: NSRect(x: 0, y: 0, width: size, height: size),
+             from: .zero, operation: .copy, fraction: 1)
+  NSGraphicsContext.restoreGraphicsState()
+  guard let data = bitmap.representation(using: .png, properties: [:]) else {
+    fatalError("Cannot encode icon PNG")
+  }
+  try data.write(to: URL(fileURLWithPath: directory).appendingPathComponent(name))
+}
+]=])
+  execute_process(
+    COMMAND "${RYTHMO_SWIFT}" "${RYTHMO_ICON_SCRIPT}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/resources/rythmo-icon.png" "${RYTHMO_ICONSET}"
+    RESULT_VARIABLE icon_render_result ERROR_VARIABLE icon_render_error)
+  if(NOT icon_render_result EQUAL 0)
+    message(FATAL_ERROR "Failed to render macOS iconset: ${icon_render_error}")
+  endif()
   set(RYTHMO_ICNS "${CMAKE_CURRENT_BINARY_DIR}/Rythmo.icns")
   execute_process(COMMAND "${RYTHMO_ICONUTIL}" -c icns "${RYTHMO_ICONSET}" -o "${RYTHMO_ICNS}"
                   RESULT_VARIABLE icon_build_result ERROR_VARIABLE icon_build_error)
