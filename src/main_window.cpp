@@ -122,7 +122,8 @@ QString findBundledOrSystemTool(const QString& base) {
     // Finder-launched apps do not reliably inherit Homebrew's shell PATH.
     // Check the standard Apple Silicon and Intel prefixes explicitly so the
     // Homebrew FFmpeg installed by the build script is discoverable.
-    candidates << QStringLiteral("/opt/homebrew/bin/") + name
+    candidates << QDir(app_dir).filePath(QStringLiteral("../Resources/bin/") + name)
+               << QStringLiteral("/opt/homebrew/bin/") + name
                << QStringLiteral("/usr/local/bin/") + name
                << QStringLiteral("/opt/local/bin/") + name;
 #endif
@@ -2379,7 +2380,10 @@ void MainWindow::openVoiceSeparation() {
             QMessageBox::warning(&dialog, QStringLiteral("Dossier de sortie manquant"), QStringLiteral("Choisis un dossier de sortie valide."));
             return;
         }
-        job_ffmpeg = ffmpeg_path_.isEmpty() ? QStandardPaths::findExecutable(QStringLiteral("ffmpeg")) : ffmpeg_path_;
+        // Resolve the bundled app binary first, even when separation starts
+        // directly from Home. Finder does not inherit an interactive shell PATH.
+        job_ffmpeg = findBundledOrSystemTool(QStringLiteral("ffmpeg"));
+        if (!job_ffmpeg.isEmpty()) ffmpeg_path_ = job_ffmpeg;
         if (job_ffmpeg.isEmpty()) {
             QMessageBox::warning(&dialog, QStringLiteral("FFmpeg requis"), QStringLiteral("FFmpeg est nécessaire pour décoder les vidéos, préparer les pistes et encoder les sorties. Place ffmpeg.exe avec Rythmo ou ajoute-le au PATH."));
             return;
