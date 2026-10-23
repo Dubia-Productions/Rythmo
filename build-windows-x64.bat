@@ -1,5 +1,6 @@
 @echo off
 setlocal EnableExtensions
+set "RYTHMO_CI_SMOKE=%CI%"
 set "ROOT=%~dp0."
 set "BUILD_DIR=%ROOT%build\release-windows-x64"
 set "DIST_DIR=%ROOT%dist\Rythmo-by-Dubia-Productions-windows-x64-v8"
@@ -34,7 +35,7 @@ if errorlevel 1 exit /b 1
 
 call :vs_env x64
 if errorlevel 1 exit /b 1
-cmake -S "%ROOT%" -B "%BUILD_DIR%" -A x64 "-DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows -DCMAKE_PREFIX_PATH="%QT_ROOT%" -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -DRYTHMO_VERSION="%RYTHMO_VERSION%" -DRYTHMO_DISTRIBUTION_DIRECTORY="%DIST_DIR%"
+cmake -S "%ROOT%" -B "%BUILD_DIR%" -A x64 "-DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows -DCMAKE_PREFIX_PATH="%QT_ROOT%" -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -DRYTHMO_TEST_SMOKE="%RYTHMO_CI_SMOKE%" -DRYTHMO_VERSION="%RYTHMO_VERSION%" -DRYTHMO_DISTRIBUTION_DIRECTORY="%DIST_DIR%"
 if errorlevel 1 exit /b 1
 cmake --build "%BUILD_DIR%" --config Release --parallel
 if errorlevel 1 exit /b 1
