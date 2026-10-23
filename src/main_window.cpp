@@ -1314,12 +1314,29 @@ void MainWindow::openVoiceSeparation() {
         QFile config(index.filePath());
         if (!config.open(QIODevice::ReadOnly)) return false;
         const QByteArray config_data = config.readAll();
+        const QString config_text = QString::fromUtf8(config_data);
         if (!spec.config_sha256.isEmpty())
-            return QString::fromUtf8(config_data).contains(QStringLiteral("sample_rate: 44100"))
+            return config_text.contains(QStringLiteral("sample_rate: 44100"))
                 && QString::fromLatin1(QCryptographicHash::hash(config_data, QCryptographicHash::Sha256).toHex()) == spec.config_sha256;
+        if (id == QStringLiteral("Mel-RoFormer-Small-Unwa")) {
+            // This checkpoint was trained with a 384-wide model and a 1x mask
+            // estimator. Accepting a stale/default 4x config builds 1536-wide
+            // layers and makes PyTorch reject the checkpoint tensors.
+            const auto has_yaml_value = [&config_text](const QString& key, const QString& value) {
+                const QString pattern = QStringLiteral("(?m)^\\s*%1\\s*:\\s*%2\\s*(?:#.*)?$")
+                    .arg(QRegularExpression::escape(key), QRegularExpression::escape(value));
+                return QRegularExpression(pattern).match(config_text).hasMatch();
+            };
+            return has_yaml_value(QStringLiteral("sample_rate"), QStringLiteral("44100"))
+                && has_yaml_value(QStringLiteral("target_instrument"), QStringLiteral("vocals"))
+                && has_yaml_value(QStringLiteral("dim"), QStringLiteral("384"))
+                && has_yaml_value(QStringLiteral("depth"), QStringLiteral("6"))
+                && has_yaml_value(QStringLiteral("num_bands"), QStringLiteral("60"))
+                && has_yaml_value(QStringLiteral("mlp_expansion_factor"), QStringLiteral("1"));
+        }
         if (id != QStringLiteral("BS-RoFormer-Viperx-1297"))
-            return QString::fromUtf8(config_data).contains(QStringLiteral("sample_rate: 44100"))
-                && QString::fromUtf8(config_data).contains(QStringLiteral("target_instrument:"));
+            return config_text.contains(QStringLiteral("sample_rate: 44100"))
+                && config_text.contains(QStringLiteral("target_instrument:"));
         const auto json = QJsonDocument::fromJson(config_data);
         return json.isObject() && json.object().value(QStringLiteral("sample_rate")).toInt() == spec.sample_rate;
     };
