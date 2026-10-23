@@ -87,11 +87,32 @@ jobs:
           if (-not $deploy) { throw 'windeployqt.exe was not found.' }
           & $deploy.FullName --release --multimedia --multimediawidgets (Join-Path $app 'Rythmo.exe')
           if ($LASTEXITCODE -ne 0) { throw 'windeployqt failed.' }
-          choco install ffmpeg -y --no-progress
-          $ffmpeg = (Get-Command ffmpeg.exe -ErrorAction Stop).Source
-          $ffprobe = (Get-Command ffprobe.exe -ErrorAction Stop).Source
-          Copy-Item $ffmpeg $app -Force
-          Copy-Item $ffprobe $app -Force
+          $target = if ($arch -eq 'x64') { 'win64' } else { 'winarm64' }
+          $archiveName = "ffmpeg-n9.0-latest-$target-gpl-9.0.zip"
+          $release = Invoke-RestMethod 'https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/tags/latest'
+          $archiveAsset = $release.assets | Where-Object name -eq $archiveName | Select-Object -First 1
+          $checksumsAsset = $release.assets | Where-Object name -eq 'checksums.sha256' | Select-Object -First 1
+          if (-not $archiveAsset -or -not $checksumsAsset) { throw "Static FFmpeg package unavailable: $archiveName" }
+          $ffmpegTemp = Join-Path $env:RUNNER_TEMP "ffmpeg-$arch"
+          New-Item -ItemType Directory -Force -Path $ffmpegTemp | Out-Null
+          $archivePath = Join-Path $ffmpegTemp $archiveName
+          $checksumsPath = Join-Path $ffmpegTemp 'checksums.sha256'
+          Invoke-WebRequest $archiveAsset.browser_download_url -OutFile $archivePath
+          Invoke-WebRequest $checksumsAsset.browser_download_url -OutFile $checksumsPath
+          $checksumLine = Get-Content $checksumsPath | Where-Object { $_ -match [regex]::Escape($archiveName) } | Select-Object -First 1
+          $expectedHash = ($checksumLine -split '\s+')[0].ToLowerInvariant()
+          $actualHash = (Get-FileHash $archivePath -Algorithm SHA256).Hash.ToLowerInvariant()
+          if (-not $expectedHash -or $actualHash -ne $expectedHash) { throw "FFmpeg SHA-256 check failed for $archiveName" }
+          Expand-Archive -Path $archivePath -DestinationPath $ffmpegTemp -Force
+          $ffmpegExe = Get-ChildItem -Path $ffmpegTemp -Filter ffmpeg.exe -File -Recurse | Select-Object -First 1
+          $ffprobeExe = Get-ChildItem -Path $ffmpegTemp -Filter ffprobe.exe -File -Recurse | Select-Object -First 1
+          if (-not $ffmpegExe -or -not $ffprobeExe) { throw 'Static FFmpeg executables were not found.' }
+          $encoders = (& $ffmpegExe.FullName -hide_banner -encoders 2>&1) -join "`n"
+          foreach ($encoder in @('libx264', 'libx265', 'libsvtav1')) {
+            if ($encoders -notmatch [regex]::Escape($encoder)) { throw "Bundled FFmpeg lacks $encoder." }
+          }
+          Copy-Item $ffmpegExe.FullName (Join-Path $app 'ffmpeg.exe') -Force
+          Copy-Item $ffprobeExe.FullName (Join-Path $app 'ffprobe.exe') -Force
           $stage = Join-Path $PWD "package/Rythmo-windows-$arch"
           New-Item -ItemType Directory -Force -Path $stage | Out-Null
           Copy-Item (Join-Path $app '*') $stage -Recurse -Force
@@ -108,9 +129,28 @@ jobs:
           if [ "$arch_name" = intel ]; then artifact_arch=intel; else artifact_arch=arm64; fi
           app="$HOME/Library/Caches/Rythmo/build/release-macos-$artifact_arch/Rythmo.app"
           test -d "$app"
-          ffmpeg_bin="$(brew --prefix ffmpeg)/bin"
-          install -m 755 "$ffmpeg_bin/ffmpeg" "$app/Contents/MacOS/ffmpeg"
-          install -m 755 "$ffmpeg_bin/ffprobe" "$app/Contents/MacOS/ffprobe"
+          source_arch="$artifact_arch"
+          if [ "$source_arch" = intel ]; then source_arch=amd64; fi
+          ffmpeg_temp="$(mktemp -d)"
+          for tool in ffmpeg ffprobe; do
+            url="https://ffmpeg.martin-riedl.de/redirect/latest/macos/$source_arch/release/$tool.zip"
+            curl -fsSL "$url" -o "$ffmpeg_temp/$tool.zip"
+            curl -fsSL "$url.sha256" -o "$ffmpeg_temp/$tool.zip.sha256"
+            expected="$(awk 'NR == 1 { print $1 }' "$ffmpeg_temp/$tool.zip.sha256")"
+            actual="$(shasum -a 256 "$ffmpeg_temp/$tool.zip" | awk '{ print $1 }')"
+            [ -n "$expected" ] && [ "$actual" = "$expected" ] || { echo "FFmpeg checksum failed: $tool" >&2; exit 1; }
+            mkdir -p "$ffmpeg_temp/$tool"
+            unzip -q "$ffmpeg_temp/$tool.zip" -d "$ffmpeg_temp/$tool"
+            binary="$(find "$ffmpeg_temp/$tool" -type f -name "$tool" -perm -111 -print -quit)"
+            [ -n "$binary" ] || { echo "Bundled $tool executable not found." >&2; exit 1; }
+            install -m 755 "$binary" "$app/Contents/MacOS/$tool"
+          done
+          encoders="$("$app/Contents/MacOS/ffmpeg" -hide_banner -encoders 2>&1)"
+          for encoder in libx264 libx265 libsvtav1 h264_videotoolbox hevc_videotoolbox; do
+            printf '%s\n' "$encoders" | grep -q "$encoder" || { echo "Bundled FFmpeg lacks $encoder." >&2; exit 1; }
+          done
+          "$app/Contents/MacOS/ffprobe" -version >/dev/null
+          rm -rf "$ffmpeg_temp"
           codesign --force --deep --sign - --timestamp=none "$app"
           codesign --verify --deep --strict "$app"
           if [ "$artifact_arch" = intel ]; then release_arch=x64; else release_arch=arm64; fi
@@ -127,12 +167,38 @@ jobs:
           install -m 755 "$build/Rythmo" "package/Rythmo-linux-$arch_name/Rythmo"
           install -m 644 resources/RYTHMO_LOGO_PNG-ROUNDED.png "package/Rythmo-linux-$arch_name/rythmo-icon.png"
           install -m 644 packaging/linux/rythmo.desktop "package/Rythmo-linux-$arch_name/rythmo.desktop"
+          ffmpeg_target=linux64
+          if [ "$arch_name" = arm64 ]; then ffmpeg_target=linuxarm64; fi
+          archive_name="ffmpeg-n9.0-latest-$ffmpeg_target-gpl-9.0.tar.xz"
+          release_json="$(curl -fsSL https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/tags/latest)"
+          archive_url="$(python3 -c 'import json,sys; n=sys.argv[1]; d=json.load(sys.stdin); print(next(a["browser_download_url"] for a in d["assets"] if a["name"]==n))' "$archive_name" <<< "$release_json")"
+          checksum_url="$(python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(a["browser_download_url"] for a in d["assets"] if a["name"]=="checksums.sha256"))' <<< "$release_json")"
+          ffmpeg_temp="$(mktemp -d)"
+          curl -fsSL "$archive_url" -o "$ffmpeg_temp/$archive_name"
+          curl -fsSL "$checksum_url" -o "$ffmpeg_temp/checksums.sha256"
+          expected="$(awk -v n="$archive_name" '$NF == n || $NF == "*" n { print $1; exit }' "$ffmpeg_temp/checksums.sha256")"
+          actual="$(sha256sum "$ffmpeg_temp/$archive_name" | awk '{ print $1 }')"
+          [ -n "$expected" ] && [ "$actual" = "$expected" ] || { echo "FFmpeg checksum failed." >&2; exit 1; }
+          mkdir -p "$ffmpeg_temp/unpacked"
+          tar -xJf "$ffmpeg_temp/$archive_name" -C "$ffmpeg_temp/unpacked"
+          ffmpeg_bin="$(find "$ffmpeg_temp/unpacked" -type f -name ffmpeg -perm -111 -print -quit)"
+          ffprobe_bin="$(find "$ffmpeg_temp/unpacked" -type f -name ffprobe -perm -111 -print -quit)"
+          [ -n "$ffmpeg_bin" ] && [ -n "$ffprobe_bin" ] || { echo "Static FFmpeg tools not found." >&2; exit 1; }
+          encoders="$("$ffmpeg_bin" -hide_banner -encoders 2>&1)"
+          for encoder in libx264 libx265 libsvtav1; do
+            printf '%s\n' "$encoders" | grep -q "$encoder" || { echo "Bundled FFmpeg lacks $encoder." >&2; exit 1; }
+          done
+          install -m 755 "$ffmpeg_bin" "package/Rythmo-linux-$arch_name/ffmpeg"
+          install -m 755 "$ffprobe_bin" "package/Rythmo-linux-$arch_name/ffprobe"
           tar -C package -czf "Rythmo-linux-$arch_name-portable.tar.gz" "Rythmo-linux-$arch_name"
           install -m 755 "$build/Rythmo" package/deb/usr/bin/Rythmo
+          install -m 755 "$ffmpeg_bin" package/deb/usr/bin/ffmpeg
+          install -m 755 "$ffprobe_bin" package/deb/usr/bin/ffprobe
+          rm -rf "$ffmpeg_temp"
           mkdir -p package/deb/usr/share/applications package/deb/usr/share/icons/hicolor/512x512/apps
           install -m 644 packaging/linux/rythmo.desktop package/deb/usr/share/applications/rythmo.desktop
           install -m 644 resources/RYTHMO_LOGO_PNG-ROUNDED.png package/deb/usr/share/icons/hicolor/512x512/apps/rythmo.png
-          printf 'Package: rythmo\nVersion: %s\nArchitecture: %s\nMaintainer: Dubia Productions\nDepends: libc6, libexpat1, libqt6core6, libqt6gui6, libqt6widgets6, libqt6multimedia6, libqt6multimediawidgets6, ffmpeg\nDescription: Rythmo dubbing cue sheet and local voice separation\n' "$RYTHMO_VERSION" "$deb_arch" > package/deb/DEBIAN/control
+          printf 'Package: rythmo\nVersion: %s\nArchitecture: %s\nMaintainer: Dubia Productions\nDepends: libc6, libexpat1, libqt6core6, libqt6gui6, libqt6widgets6, libqt6multimedia6, libqt6multimediawidgets6\nDescription: Rythmo dubbing cue sheet and local voice separation\n' "$RYTHMO_VERSION" "$deb_arch" > package/deb/DEBIAN/control
           dpkg-deb --build package/deb "Rythmo-linux-$arch_name-setup.deb"
 
       - uses: actions/upload-artifact@v4
