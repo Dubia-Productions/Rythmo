@@ -130,10 +130,10 @@ jobs:
           app="$HOME/Library/Caches/Rythmo/build/release-macos-$artifact_arch/Rythmo.app"
           test -d "$app"
           source_arch="$artifact_arch"
-          if [ "$source_arch" = intel ]; then source_arch=amd64; fi
+          if [ "$source_arch" = intel ]; then source_arch=amd64; build_id=1789931006; else build_id=1789931890; fi
           ffmpeg_temp="$(mktemp -d)"
           for tool in ffmpeg ffprobe; do
-            url="https://ffmpeg.martin-riedl.de/redirect/latest/macos/$source_arch/release/$tool.zip"
+            url="https://ffmpeg.martin-riedl.de/download/macos/$source_arch/${build_id}_9.0.2/$tool.zip"
             curl -fsSL "$url" -o "$ffmpeg_temp/$tool.zip"
             curl -fsSL "$url.sha256" -o "$ffmpeg_temp/$tool.zip.sha256"
             expected="$(awk 'NR == 1 { print $1 }' "$ffmpeg_temp/$tool.zip.sha256")"
