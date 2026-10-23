@@ -1,5 +1,8 @@
 {
   "name": "rythmo-app",
   "version-string": "0.3.1",
-  "dependencies": ["expat"]
+  "builtin-baseline": "65a2c2391af39b773f83f91e0ab6c8ced8f9c727",
+  "dependencies": [
+    "expat"
+  ]
 }
