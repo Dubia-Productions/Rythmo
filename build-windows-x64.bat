@@ -1,6 +1,6 @@
 @echo off
 setlocal EnableExtensions
-set "ROOT=%~dp0"
+set "ROOT=%~dp0."
 set "BUILD_DIR=%ROOT%build\release-windows-x64"
 set "DIST_DIR=%ROOT%dist\Rythmo-by-Dubia-Productions-windows-x64-v8"
 set "QT_ARCH=win64_msvc2022_64"

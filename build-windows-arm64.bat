@@ -1,6 +1,6 @@
 @echo off
 setlocal EnableExtensions
-set "ROOT=%~dp0"
+set "ROOT=%~dp0."
 set "BUILD_DIR=%ROOT%build\release-windows-arm64"
 set "QT_VERSION=6.8.3"
 if not defined RYTHMO_VERSION set "RYTHMO_VERSION=0.3.0"
