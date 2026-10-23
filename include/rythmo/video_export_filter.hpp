@@ -29,10 +29,7 @@ inline QStringList videoExportCodecArguments(const QString& encoder, int width =
         args << "-preset" << "6" << "-crf" << "30";
 #endif
     } else if (encoder == "libaom-av1") {
-        args << "-crf" << "30" << "-b:v" << "0" << "-row-mt" << "1";
-#ifdef Q_OS_WIN
-        args << "-cpu-used" << "6";
-#endif
+        args << "-crf" << "30" << "-b:v" << "0" << "-row-mt" << "1" << "-cpu-used" << "6";
     } else if (encoder.contains("nvenc")) {
 #ifdef Q_OS_WIN
         args << "-preset" << "p4" << "-cq:v" << "23" << "-b:v" << "0";
