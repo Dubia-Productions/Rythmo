@@ -906,7 +906,7 @@ void MainWindow::showHome() {
         auto* title = new QLabel(QStringLiteral("Tout votre studio, au même endroit."), page);
         title->setObjectName(QStringLiteral("homeTitle"));
         title->setWordWrap(true);
-        auto* subtitle = new QLabel(QStringLiteral("Le logiciel de création de bande rythmo, de séparation vocale et de gestion de projet par excellence."), page);
+        auto* subtitle = new QLabel(QStringLiteral("Le logiciel de création de bande rythmo et de séparation vocale par excellence."), page);
         subtitle->setObjectName(QStringLiteral("homeSubtitle"));
         subtitle->setWordWrap(true);
         layout->addWidget(title);
