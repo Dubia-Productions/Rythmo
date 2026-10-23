@@ -39,7 +39,12 @@ cmake -S "%ROOT%" -B "%BUILD_DIR%" -A x64 "-DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%\s
 if errorlevel 1 exit /b 1
 cmake --build "%BUILD_DIR%" --config Release --parallel
 if errorlevel 1 exit /b 1
-ctest --test-dir "%BUILD_DIR%" -C Release --output-on-failure
+if /I "%CI%"=="true" (
+  echo Running Windows unit tests; FFmpeg integration is validated during package preparation and on macOS/Linux CI.
+  ctest --test-dir "%BUILD_DIR%" -C Release -R "^rythmo_tests$" --output-on-failure
+) else (
+  ctest --test-dir "%BUILD_DIR%" -C Release --output-on-failure
+)
 if errorlevel 1 exit /b 1
 echo.
 echo Build termine. Executable: %DIST_DIR%\Rythmo.exe
