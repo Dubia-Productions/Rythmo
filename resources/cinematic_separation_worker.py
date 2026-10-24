@@ -37,22 +37,22 @@ def ensure_small_roformer_config(config_path):
     """Repair the small Unwa checkpoint's required 1x mask-estimator width."""
     path = Path(config_path)
     text = path.read_text(encoding="utf-8")
-    if not re.search(r"(?m)^\\s*dim:\\s*384\\s*(?:#.*)?$", text):
+    if not re.search(r"(?m)^\s*dim:\s*384\s*(?:#.*)?$", text):
         raise RuntimeError("La configuration du modèle léger ne correspond pas au checkpoint attendu (dim=384).")
-    factor_pattern = re.compile(r"(?m)^mlp_expansion_factor\\s*:\\s*.*$")
+    factor_pattern = re.compile(r"(?m)^mlp_expansion_factor\s*:\s*.*$")
     factor_lines = factor_pattern.findall(text)
     if factor_lines == ["mlp_expansion_factor: 1"]:
         return
     if factor_lines:
         text = factor_pattern.sub("mlp_expansion_factor: 1", text, count=1)
     else:
-        text = text.rstrip() + "\\nmlp_expansion_factor: 1\\n"
-    if not re.search(r"(?m)^mlp_expansion_factor\\s*:\\s*1\\s*(?:#.*)?$", text):
+        text = text.rstrip() + "\nmlp_expansion_factor: 1\n"
+    if not re.search(r"(?m)^mlp_expansion_factor\s*:\s*1\s*(?:#.*)?$", text):
         raise RuntimeError("Impossible de réparer la configuration du modèle léger.")
     temporary_path = None
     try:
         with tempfile.NamedTemporaryFile(
-            mode="w", encoding="utf-8", newline="\\n",
+            mode="w", encoding="utf-8", newline="\n",
             dir=str(path.parent), prefix=path.name + ".repair-", delete=False
         ) as stream:
             temporary_path = stream.name
