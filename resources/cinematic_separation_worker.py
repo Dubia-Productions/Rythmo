@@ -122,6 +122,48 @@ def ensure_small_roformer_config(config_path):
     finally:
         if temporary_path and os.path.exists(temporary_path):
             os.unlink(temporary_path)
+
+def patch_small_roformer_loader_config():
+    """Force the checkpoint's 1x MLP width at the final model-construction boundary."""
+    from audio_separator.separator.roformer.configuration_normalizer import ConfigurationNormalizer
+    from audio_separator.separator.roformer.roformer_loader import RoformerLoader
+
+    def is_small_unwa(config, model_type):
+        if model_type != "mel_band_roformer" or not isinstance(config, dict):
+            return False
+        try:
+            return int(config.get("dim", 0)) == 384 and int(config.get("num_bands", 0)) == 60
+        except (TypeError, ValueError):
+            return False
+
+    original_normalize = ConfigurationNormalizer.normalize_config
+    if not getattr(original_normalize, "_rythmo_small_unwa_patch", False):
+        def normalize_with_small_unwa(self, config, model_type, *args, **kwargs):
+            normalized = original_normalize(self, config, model_type, *args, **kwargs)
+            if is_small_unwa(normalized, model_type):
+                normalized["mlp_expansion_factor"] = 1
+                print(
+                    "Configuration validée pour Mel-RoFormer Small Unwa : "
+                    "dim=384, num_bands=60, mlp_expansion_factor=1.",
+                    flush=True,
+                )
+            return normalized
+
+        normalize_with_small_unwa._rythmo_small_unwa_patch = True
+        ConfigurationNormalizer.normalize_config = normalize_with_small_unwa
+
+    original_builder = RoformerLoader._create_mel_band_roformer
+    if not getattr(original_builder, "_rythmo_small_unwa_patch", False):
+        def build_small_unwa_safely(self, config):
+            if is_small_unwa(config, "mel_band_roformer"):
+                config = dict(config)
+                config["mlp_expansion_factor"] = 1
+            return original_builder(self, config)
+
+        build_small_unwa_safely._rythmo_small_unwa_patch = True
+        RoformerLoader._create_mel_band_roformer = build_small_unwa_safely
+
+
 def patch_librosa_duration_api():
     """Keep compatibility with older librosa-duration callers in separator backends."""
     import librosa
@@ -234,6 +276,8 @@ def main():
         return checkpoint_name, "MDXC", friendly_name, str(checkpoint_path), str(config_path)
 
     roformer_separator.download_model_files = load_local_model_files
+    if args.model == "Mel-RoFormer-Small-Unwa":
+        patch_small_roformer_loader_config()
     roformer_separator.load_model(model_filename=checkpoint_name)
     print(f"Moteur RoFormer prêt · {getattr(roformer_separator, 'torch_device', device)}.", flush=True)
 
