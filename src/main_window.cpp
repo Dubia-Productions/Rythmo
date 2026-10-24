@@ -1862,7 +1862,8 @@ void MainWindow::openVoiceSeparation() {
             // Repair the explicit RoFormer runtime set. `diffq` belongs to the unused
             // Demucs backend and has no compatible wheel for this Python 3.12 runtime.
             // Its absence does not affect the MDXC/BS-RoFormer inference path.
-            arguments << QStringLiteral("beartype>=0.18.5,<0.19") << QStringLiteral("julius>=0.2")
+            arguments << QStringLiteral("beartype>=0.18.5,<0.19") << QStringLiteral("einops>=0.7")
+                      << QStringLiteral("huggingface_hub>=0.23,<1.0") << QStringLiteral("julius>=0.2")
                       << QStringLiteral("librosa>=0.10") << QStringLiteral("soxr==1.1.0") << QStringLiteral("decorator>=5.1,<6") << QStringLiteral("joblib>=1.2,<2") << QStringLiteral("cloudpickle>=3.0,<4") << QStringLiteral("msgpack>=1.0.7,<2") << QStringLiteral("lazy_loader>=0.1")
                       << QStringLiteral("ml_collections") << QStringLiteral("numpy>=2")
                       << QStringLiteral("onnx-weekly") << QStringLiteral("onnx2torch-py313>=1.6")
@@ -2266,7 +2267,7 @@ void MainWindow::openVoiceSeparation() {
                     return;
                 }
                 roformer_install_attempted = true;
-                start_roformer_install();
+                start_roformer_deps_install();
                 return;
             }
             if (!success && completed_stage == StageVerifyPythonArch) {
@@ -2357,14 +2358,14 @@ void MainWindow::openVoiceSeparation() {
                 start_roformer_install();
             } else if (completed_stage == StageInstallRoformer) {
                 start_runtime_process(StageCheckRoformer, python_exe,
-                    {QStringLiteral("-c"), QStringLiteral("import importlib.metadata as md, inspect, platform, sys; from packaging.version import Version; import torch; v=Version(md.version('audio-separator')); t=Version(torch.__version__.split('+')[0]); assert v >= Version('0.47.0'); assert platform.system() != 'Darwin' or platform.machine().lower() not in ('arm64','aarch64') or t >= Version('2.13'); assert Version(md.version('samplerate')) >= Version('0.2.2'); import audioread, librosa, numba, llvmlite, onnxruntime, resampy, samplerate, soundfile, soxr, decorator, joblib, cloudpickle, msgpack; inspect.signature(librosa.get_duration); from audio_separator.separator import Separator; print('Moteur RoFormer prêt')")},
+                    {QStringLiteral("-c"), QStringLiteral("import importlib.metadata as md, inspect, platform, sys; from packaging.version import Version; import torch; v=Version(md.version('audio-separator')); t=Version(torch.__version__.split('+')[0]); assert v >= Version('0.47.0'); assert platform.system() != 'Darwin' or platform.machine().lower() not in ('arm64','aarch64') or t >= Version('2.13'); assert Version(md.version('samplerate')) >= Version('0.2.2'); import audioread, librosa, numba, llvmlite, onnxruntime, resampy, samplerate, soundfile, soxr, decorator, joblib, cloudpickle, msgpack, einops, huggingface_hub, safetensors, beartype, julius, ml_collections, onnx, onnx2torch, pydub, requests, scipy, six, tqdm, yaml, rotary_embedding_torch; inspect.signature(librosa.get_duration); from audio_separator.separator import Separator; print('Moteur RoFormer prêt')")},
                     QStringLiteral("Vérification du moteur RoFormer local…"));
             } else if (completed_stage == StageCheckRoformer) {
                 QDir(QDir(runtime_root).filePath(QStringLiteral("pip-cache"))).removeRecursively();
                 start_next_extract();
             } else if (completed_stage == StageCheckRuntime) {
                 start_runtime_process(StageCheckRoformer, python_exe,
-                    {QStringLiteral("-c"), QStringLiteral("import importlib.metadata as md, inspect, platform, sys; from packaging.version import Version; import torch; v=Version(md.version('audio-separator')); t=Version(torch.__version__.split('+')[0]); assert v >= Version('0.47.0'); assert platform.system() != 'Darwin' or platform.machine().lower() not in ('arm64','aarch64') or t >= Version('2.13'); assert Version(md.version('samplerate')) >= Version('0.2.2'); import audioread, librosa, numba, llvmlite, onnxruntime, resampy, samplerate, soundfile, soxr, decorator, joblib, cloudpickle, msgpack; inspect.signature(librosa.get_duration); from audio_separator.separator import Separator; print('Moteur RoFormer prêt')")},
+                    {QStringLiteral("-c"), QStringLiteral("import importlib.metadata as md, inspect, platform, sys; from packaging.version import Version; import torch; v=Version(md.version('audio-separator')); t=Version(torch.__version__.split('+')[0]); assert v >= Version('0.47.0'); assert platform.system() != 'Darwin' or platform.machine().lower() not in ('arm64','aarch64') or t >= Version('2.13'); assert Version(md.version('samplerate')) >= Version('0.2.2'); import audioread, librosa, numba, llvmlite, onnxruntime, resampy, samplerate, soundfile, soxr, decorator, joblib, cloudpickle, msgpack, einops, huggingface_hub, safetensors, beartype, julius, ml_collections, onnx, onnx2torch, pydub, requests, scipy, six, tqdm, yaml, rotary_embedding_torch; inspect.signature(librosa.get_duration); from audio_separator.separator import Separator; print('Moteur RoFormer prêt')")},
                     QStringLiteral("Vérification du moteur RoFormer local…"));
             } else if (completed_stage == StageRunWorker) {
                 QFile manifest_file(QDir(job_temp.path()).filePath(QStringLiteral("manifest.json")));
