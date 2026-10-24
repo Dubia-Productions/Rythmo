@@ -1674,7 +1674,7 @@ void MainWindow::openVoiceSeparation() {
         if (!job_cancelled && dialog.isVisible())
             QMessageBox::warning(&dialog, QStringLiteral("Séparation impossible"), error);
     };
-    const auto start_runtime_process = [&runtime_process, runtime_info, work_progress, separate_button, runtime_root, python_dir, python_runtime_bin, job_ffmpeg,
+    const auto start_runtime_process = [&runtime_process, runtime_info, work_progress, separate_button, runtime_root, python_dir, python_runtime_bin, &job_ffmpeg,
                                         &runtime_stage, &job_process_error](int stage, const QString& program, const QStringList& arguments, const QString& status) {
         runtime_stage = stage;
         job_process_error.clear();
