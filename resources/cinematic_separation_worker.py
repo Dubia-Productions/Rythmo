@@ -124,27 +124,27 @@ def ensure_small_roformer_config(config_path):
             os.unlink(temporary_path)
 
 def patch_small_roformer_loader_config():
-    """Apply the Small Unwa checkpoint width at the final PyTorch module boundary."""
-    from audio_separator.separator.uvr_lib_v5.roformer.mel_band_roformer import MelBandRoformer
+    """Make Small Unwa's mask-estimator layers match its 1x checkpoint width."""
+    from audio_separator.separator.uvr_lib_v5.roformer.mel_band_roformer import MaskEstimator
 
-    original_init = MelBandRoformer.__init__
+    original_init = MaskEstimator.__init__
     if getattr(original_init, "_rythmo_small_unwa_patch", False):
         return
 
-    def initialize_small_unwa(self, *args, **kwargs):
-        # This patch is installed only for the explicitly selected Small Unwa
-        # checkpoint, whose state dict uses a 1x MLP width.
-        kwargs = dict(kwargs)
-        kwargs["mlp_expansion_factor"] = 1
+    def initialize_small_unwa_mask(self, dim, dim_inputs, depth, mlp_expansion_factor=4):
+        # MelBandRoformer currently omits this value when it creates MaskEstimator,
+        # so its default (4) otherwise silently overrides the model's config.
         print(
-            "Construction Small Unwa : mlp_expansion_factor=1 "
-            "(largeur cachée 384 conforme au checkpoint).",
+            f"Construction Small Unwa MaskEstimator : dim={dim}, "
+            "mlp_expansion_factor=1.",
             flush=True,
         )
-        return original_init(self, *args, **kwargs)
+        return original_init(
+            self, dim, dim_inputs, depth, mlp_expansion_factor=1
+        )
 
-    initialize_small_unwa._rythmo_small_unwa_patch = True
-    MelBandRoformer.__init__ = initialize_small_unwa
+    initialize_small_unwa_mask._rythmo_small_unwa_patch = True
+    MaskEstimator.__init__ = initialize_small_unwa_mask
 
 def patch_librosa_duration_api():
     """Keep compatibility with older librosa-duration callers in separator backends."""
