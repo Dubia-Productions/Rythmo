@@ -1697,9 +1697,12 @@ void MainWindow::openVoiceSeparation() {
         environment.insert(QStringLiteral("PYTHONUTF8"), QStringLiteral("1"));
         environment.insert(QStringLiteral("PYTHONIOENCODING"), QStringLiteral("utf-8"));
         const QString old_path = environment.value(QStringLiteral("PATH"));
-        const QString ffmpeg_dir = QFileInfo(job_ffmpeg).absolutePath();
+        const QString ffmpeg_path = QFileInfo(job_ffmpeg).absoluteFilePath();
+        const QString ffmpeg_dir = QFileInfo(ffmpeg_path).absolutePath();
         const auto path_separator = QDir::listSeparator();
-        environment.insert(QStringLiteral("PATH"), python_runtime_bin + path_separator + ffmpeg_dir + path_separator + old_path);
+        environment.insert(QStringLiteral("RYTHMO_FFMPEG"), ffmpeg_path);
+        environment.insert(QStringLiteral("PATH"), ffmpeg_dir + path_separator + python_runtime_bin
+                           + (old_path.isEmpty() ? QString() : path_separator + old_path));
         runtime_process.setProcessEnvironment(environment);
         runtime_process.setWorkingDirectory(runtime_root);
         runtime_process.setProgram(program);
@@ -2163,9 +2166,14 @@ void MainWindow::openVoiceSeparation() {
         }
         worker_target.write(worker_resource.readAll());
         worker_target.close();
+        const QString ffmpeg_bootstrap = QStringLiteral(
+            "import os,runpy,sys; p=sys.argv.pop(1); f=os.environ.get('RYTHMO_FFMPEG',''); "
+            "os.environ['PATH']=(os.path.dirname(f)+os.pathsep if f else '')+os.environ.get('PATH',''); "
+            "sys.argv=[p]+sys.argv[1:]; runpy.run_path(p,run_name='__main__')");
         start_runtime_process(StageRunWorker, python_exe,
-            {worker_script, QStringLiteral("--model"), job_model_id, QStringLiteral("--manifest"), manifest_path,
-             QStringLiteral("--model-dir"), QDir(model_dir).filePath(model_spec(job_model_id).repo)},
+            {QStringLiteral("-c"), ffmpeg_bootstrap, worker_script, QStringLiteral("--model"), job_model_id,
+             QStringLiteral("--manifest"), manifest_path, QStringLiteral("--model-dir"),
+             QDir(model_dir).filePath(model_spec(job_model_id).repo)},
             QStringLiteral("Le moteur cinématique sépare Voix + M&E sur %1 fichier(s)…").arg(job_sources.size()));
     };
 
