@@ -34,21 +34,80 @@ def find_roformer_stems(outputs, output_dir, voice_name, me_name, primary_stem, 
 
 
 def ensure_small_roformer_config(config_path):
-    """Repair the small Unwa checkpoint's required 1x mask-estimator width."""
+    """Repair the small Unwa checkpoint's model-section expansion factor."""
     path = Path(config_path)
     text = path.read_text(encoding="utf-8")
-    if not re.search(r"(?m)^\s*dim:\s*384\s*(?:#.*)?$", text):
-        raise RuntimeError("La configuration du modèle léger ne correspond pas au checkpoint attendu (dim=384).")
-    factor_pattern = re.compile(r"(?m)^mlp_expansion_factor\s*:\s*.*$")
-    factor_lines = factor_pattern.findall(text)
-    if factor_lines == ["mlp_expansion_factor: 1"]:
+    lines = text.splitlines()
+
+    def indentation(line):
+        return len(line) - len(line.lstrip(" \t"))
+
+    model_match = next(
+        (
+            (index, indentation(line))
+            for index, line in enumerate(lines)
+            if re.match(r"^[ \t]*model[ \t]*:[ \t]*(?:#.*)?$", line)
+        ),
+        None,
+    )
+    if model_match is None:
+        raise RuntimeError("La configuration du modèle léger ne contient pas de section model.")
+    model_start, model_indent = model_match
+    model_end = len(lines)
+    for index in range(model_start + 1, len(lines)):
+        line = lines[index]
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        if indentation(line) <= model_indent and re.match(r"^[^#\s][^:]*\s*:", line):
+            model_end = index
+            break
+
+    dim_index = None
+    child_indent = None
+    for index in range(model_start + 1, model_end):
+        match = re.match(r"^([ \t]+)dim:[ \t]*384[ \t]*(?:#.*)?$", lines[index])
+        if match and len(match.group(1)) > model_indent:
+            dim_index = index
+            child_indent = len(match.group(1))
+            break
+    if dim_index is None:
+        raise RuntimeError("La configuration du modèle léger ne correspond pas au checkpoint attendu (model.dim=384).")
+
+    factor_indices = []
+    for index in range(model_start + 1, model_end):
+        match = re.match(r"^([ \t]*)mlp_expansion_factor[ \t]*:.*$", lines[index])
+        if match and len(match.group(1)) == child_indent:
+            factor_indices.append(index)
+
+    if factor_indices and all(
+        re.match(r"^[ \t]*mlp_expansion_factor[ \t]*:[ \t]*1[ \t]*(?:#.*)?$", lines[index])
+        for index in factor_indices
+    ) and len(factor_indices) == 1:
         return
-    if factor_lines:
-        text = factor_pattern.sub("mlp_expansion_factor: 1", text, count=1)
+
+    if factor_indices:
+        first = factor_indices[0]
+        lines[first] = " " * child_indent + "mlp_expansion_factor: 1"
+        for index in reversed(factor_indices[1:]):
+            del lines[index]
     else:
-        text = text.rstrip() + "\nmlp_expansion_factor: 1\n"
-    if not re.search(r"(?m)^mlp_expansion_factor\s*:\s*1\s*(?:#.*)?$", text):
-        raise RuntimeError("Impossible de réparer la configuration du modèle léger.")
+        lines.insert(dim_index + 1, " " * child_indent + "mlp_expansion_factor: 1")
+
+    repaired = "\n".join(lines) + "\n"
+    verify_model = re.search(
+        r"(?ms)^[ \t]*model[ \t]*:[ \t]*(?:#.*)?\n(?P<body>(?:(?:[ \t]+.*|[ \t]*#.*|[ \t]*)\n)*)(?=^[^ \t#\n][^:\n]*[ \t]*:|\Z)",
+        repaired,
+    )
+    if not verify_model or not re.search(
+        r"(?m)^[ \t]+dim:[ \t]*384[ \t]*(?:#.*)?$",
+        verify_model.group("body"),
+    ) or not re.search(
+        r"(?m)^[ \t]+mlp_expansion_factor:[ \t]*1[ \t]*(?:#.*)?$",
+        verify_model.group("body"),
+    ):
+        raise RuntimeError("Impossible de réparer la configuration model du modèle léger.")
+
     temporary_path = None
     try:
         with tempfile.NamedTemporaryFile(
@@ -56,15 +115,13 @@ def ensure_small_roformer_config(config_path):
             dir=str(path.parent), prefix=path.name + ".repair-", delete=False
         ) as stream:
             temporary_path = stream.name
-            stream.write(text)
+            stream.write(repaired)
             stream.flush()
             os.fsync(stream.fileno())
         os.replace(temporary_path, path)
     finally:
         if temporary_path and os.path.exists(temporary_path):
             os.unlink(temporary_path)
-
-
 def patch_librosa_duration_api():
     """Keep compatibility with older librosa-duration callers in separator backends."""
     import librosa
