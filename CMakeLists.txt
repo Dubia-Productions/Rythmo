@@ -55,7 +55,11 @@ if(WIN32)
     message(FATAL_ERROR "Failed to create the Windows application icon: ${icon_error}")
   endif()
   set(RYTHMO_WINDOWS_RC "${CMAKE_CURRENT_BINARY_DIR}/rythmo-icon.rc")
-  file(WRITE "${RYTHMO_WINDOWS_RC}" "IDI_ICON1 ICON DISCARDABLE \\\"${RYTHMO_WINDOWS_ICON}\\\"\\n")
+  configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/packaging/windows/rythmo-icon.rc.in"
+    "${RYTHMO_WINDOWS_RC}"
+    @ONLY
+  )
   target_sources(rythmo-app PRIVATE "${RYTHMO_WINDOWS_RC}")
   set_target_properties(rythmo-app PROPERTIES WIN32_EXECUTABLE TRUE)
   # The Windows x64 build script can target the portable package directly;
