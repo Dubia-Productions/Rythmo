@@ -217,7 +217,8 @@ def main():
             "Mel-Band RoFormer Instrumental v1e+ by unwa",
         ),
     }
-    if args.model not in model_files:
+    custom_mode = args.model.startswith("custom:")
+    if args.model not in model_files and not custom_mode:
         raise RuntimeError(f"Modèle cinématique inconnu : {args.model}")
 
     if torch.cuda.is_available():
@@ -232,15 +233,24 @@ def main():
     patch_librosa_duration_api()
     from audio_separator.separator import Separator
 
-    checkpoint_name, config_name, friendly_name = model_files[args.model]
     model_directory = Path(args.model_dir).resolve()
-    checkpoint_path = model_directory / checkpoint_name
-    config_path = model_directory / config_name
+    if custom_mode:
+        checkpoints = sorted(model_directory.glob("*.ckpt"))
+        configurations = sorted(model_directory.glob("*.yaml")) + sorted(model_directory.glob("*.yml"))
+        if len(checkpoints) != 1 or len(configurations) != 1:
+            raise RuntimeError("Un modèle personnel doit contenir exactement un checkpoint .ckpt et une configuration .yaml.")
+        checkpoint_path, config_path = checkpoints[0], configurations[0]
+        checkpoint_name, config_name = checkpoint_path.name, config_path.name
+        friendly_name = "Modèle RoFormer personnel"
+    else:
+        checkpoint_name, config_name, friendly_name = model_files[args.model]
+        checkpoint_path = model_directory / checkpoint_name
+        config_path = model_directory / config_name
     if not checkpoint_path.is_file() or checkpoint_path.stat().st_size < 1024:
         raise RuntimeError(f"Poids RoFormer manquants ou incomplets : {checkpoint_path}")
     if not config_path.is_file():
         raise RuntimeError(f"Configuration RoFormer introuvable : {config_path}")
-    if args.model == "Mel-RoFormer-Small-Unwa":
+    if not custom_mode and args.model == "Mel-RoFormer-Small-Unwa":
         ensure_small_roformer_config(config_path)
     roformer_separator = Separator(
         output_dir=str(Path(args.manifest).parent / "roformer-stems"),
@@ -258,7 +268,7 @@ def main():
         return checkpoint_name, "MDXC", friendly_name, str(checkpoint_path), str(config_path)
 
     roformer_separator.download_model_files = load_local_model_files
-    if args.model == "Mel-RoFormer-Small-Unwa":
+    if not custom_mode and args.model == "Mel-RoFormer-Small-Unwa":
         patch_small_roformer_loader_config()
     roformer_separator.load_model(model_filename=checkpoint_name)
     print(f"Moteur RoFormer prêt · {getattr(roformer_separator, 'torch_device', device)}.", flush=True)
@@ -283,7 +293,7 @@ def main():
         voice_channels = []
         me_channels = []
         print(f"Séparation {index}/{len(jobs)} · {source.name} · {audio.shape[1]} canaux", flush=True)
-        if args.model in model_files:
+        if args.model in model_files or custom_mode:
             work_root = Path(args.manifest).parent / "roformer-work" / f"job-{index}"
             if work_root.exists():
                 shutil.rmtree(work_root)

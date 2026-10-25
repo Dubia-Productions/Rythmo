@@ -2,7 +2,7 @@ name: Build and release
 
 on:
   push:
-    branches: [Release]
+    branches: [Rythmo-v0.4.1]
     tags: ["v*.*.*"]
   workflow_dispatch:
 

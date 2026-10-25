@@ -1381,44 +1381,54 @@ void MainWindow::openVoiceSeparation() {
     const QString runtime_root = QDir(app_data_dir).filePath(QStringLiteral("cinematic_separation_runtime"));
     const QString model_dir = QDir(runtime_root).filePath(QStringLiteral("checkpoints"));
     QDir().mkpath(model_dir);
+    QSettings model_settings;
+    QString custom_model_id = model_settings.value(QStringLiteral("voice/customModelId")).toString();
+    QString custom_model_directory = model_settings.value(QStringLiteral("voice/customModelDirectory")).toString();
+    QString custom_checkpoint = model_settings.value(QStringLiteral("voice/customCheckpoint")).toString();
+    QString custom_config = model_settings.value(QStringLiteral("voice/customConfig")).toString();
 
     struct ModelSpec { QString repo; QString checkpoint; QString index_file; qint64 minimum_bytes; int sample_rate; QString summary; QString download_url; QString sha256; QString config_url; QString config_sha256; };
-    const auto model_spec = [](const QString& id) {
+    const auto model_spec = [&](const QString& id) {
+        if (!custom_model_id.isEmpty() && id == custom_model_id)
+            return ModelSpec{QStringLiteral("custom"), custom_checkpoint, custom_config, 1024, 44100,
+                QStringLiteral("Modèle RoFormer personnel"), {}, {}, {}, {}};
         if (id == QStringLiteral("Mel-RoFormer-Unwa-v1e-plus"))
             return ModelSpec{QStringLiteral("Mel-RoFormer-Unwa-v1e-plus"), QStringLiteral("inst_v1e_plus.ckpt"), QStringLiteral("config_melbandroformer_inst.yaml"), 913090472, 44100,
-                QStringLiteral("Mel-Band RoFormer Instrumental v1e+ by unwa · le résidu est utilisé comme piste voix · 44,1 kHz · environ 913 Mo."),
+                QStringLiteral("Profil élevé · séparation voix et musique · 44,1 kHz · environ 913 Mo."),
                 QStringLiteral("https://huggingface.co/pcunwa/Mel-Band-Roformer-Inst/resolve/f86cd9e99d63eb9499b00fca424bc4ed8a8aeaba/inst_v1e_plus.ckpt"),
                 QStringLiteral("6a4ddba739f0352407fb6e18b29206b82318ec427fe37fcedb0f83241e4e15fb"),
                 QStringLiteral("https://huggingface.co/pcunwa/Mel-Band-Roformer-Inst/resolve/b5eb552e1fd019392ad5f912aebe2e8bdd481421/config_melbandroformer_inst.yaml"), {}};
         if (id == QStringLiteral("BS-RoFormer-Viperx-1297"))
             return ModelSpec{QStringLiteral("BS-RoFormer-Viperx-1297"), QStringLiteral("model_bs_roformer_ep_317_sdr_12.9755.ckpt"), QStringLiteral("model_bs_roformer_ep_317_sdr_12.9755.yaml"), 639000000, 44100,
-                QStringLiteral("BS-RoFormer ViperX 1297 · séparation voix/instrumental · 44,1 kHz · environ 639 Mo."),
+                QStringLiteral("Profil intermédiaire · séparation voix et musique · 44,1 kHz · environ 639 Mo."),
                 QStringLiteral("https://github.com/TRvlvr/model_repo/releases/download/all_public_uvr_models/model_bs_roformer_ep_317_sdr_12.9755.ckpt"),
                 QStringLiteral("5b84f37e8d444c8cb30c79d77f613a41c05868ff9c9ac6c7049c00aefae115aa"),
                 QStringLiteral("https://raw.githubusercontent.com/TRvlvr/application_data/main/mdx_model_data/mdx_c_configs/model_bs_roformer_ep_317_sdr_12.9755.yaml"),
                 QStringLiteral("2bfdd16c656bd9519aba757cc4f8834b7ede675eb1e00ec4772d74ae1c41af7f")};
         return ModelSpec{QStringLiteral("Mel-RoFormer-Small-Unwa"), QStringLiteral("melband_roformer_small_v1.ckpt"), QStringLiteral("config_melbandroformer_small.yaml"), 200000000, 44100,
-            QStringLiteral("Mel-Band RoFormer Small by unwa · taille et mémoire réduites pour les machines modestes · 44,1 kHz · environ 203 Mo."),
+            QStringLiteral("Profil léger · conçu pour les machines modestes · 44,1 kHz · environ 203 Mo."),
             QStringLiteral("https://huggingface.co/pcunwa/Mel-Band-Roformer-small/resolve/main/melband_roformer_small_v1.ckpt"),
             QStringLiteral("9a1b9f3c32946b66781b82d5de856703d0fdf3359f047830c1373c0310dcb522"),
             QStringLiteral("https://huggingface.co/pcunwa/Mel-Band-Roformer-small/resolve/1964f60d59b58ca9c3760d757f74e7b75aff2e77/config_melbandroformer_small.yaml"), {}};
     };
-    const auto model_path = [model_dir, model_spec](const QString& id) {
-        const auto spec = model_spec(id);
-        return QDir(QDir(model_dir).filePath(spec.repo)).filePath(spec.checkpoint);
-    };
-    const auto model_index_path = [model_dir, model_spec](const QString& id) {
-        const auto spec = model_spec(id);
-        return QDir(QDir(model_dir).filePath(spec.repo)).filePath(spec.index_file);
-    };
-    const auto model_directory_path = [model_dir, model_spec](const QString& id) {
+    const auto model_directory_path = [&, model_dir, model_spec](const QString& id) {
+        if (!custom_model_id.isEmpty() && id == custom_model_id)
+            return QDir::cleanPath(QFileInfo(custom_model_directory).absoluteFilePath());
         return QDir::cleanPath(QDir(model_dir).absoluteFilePath(model_spec(id).repo));
+    };
+    const auto model_path = [&, model_directory_path, model_spec](const QString& id) {
+        const auto spec = model_spec(id);
+        return QDir(model_directory_path(id)).filePath(spec.checkpoint);
+    };
+    const auto model_index_path = [&, model_directory_path, model_spec](const QString& id) {
+        const auto spec = model_spec(id);
+        return QDir(model_directory_path(id)).filePath(spec.index_file);
     };
     const auto model_directory_exists = [model_directory_path](const QString& id) {
         const QFileInfo info(model_directory_path(id));
         return info.exists() && info.isDir();
     };
-    const auto model_is_installed = [model_path, model_index_path, model_spec](const QString& id) {
+    const auto model_is_installed = [model_path, model_index_path, model_spec, &custom_model_id](const QString& id) {
         const auto spec = model_spec(id);
         const QFileInfo weight(model_path(id));
         const QFileInfo index(model_index_path(id));
@@ -1430,6 +1440,9 @@ void MainWindow::openVoiceSeparation() {
         if (!spec.config_sha256.isEmpty())
             return config_text.contains(QStringLiteral("sample_rate: 44100"))
                 && QString::fromLatin1(QCryptographicHash::hash(config_data, QCryptographicHash::Sha256).toHex()) == spec.config_sha256;
+        if (!custom_model_id.isEmpty() && id == custom_model_id)
+            return config_text.contains(QStringLiteral("sample_rate: 44100"))
+                && config_text.contains(QStringLiteral("model:"));
         if (id == QStringLiteral("Mel-RoFormer-Small-Unwa")) {
             // This checkpoint was trained with a 384-wide model and a 1x mask
             // estimator. Accepting a stale/default 4x config builds 1536-wide
@@ -1453,81 +1466,6 @@ void MainWindow::openVoiceSeparation() {
         return json.isObject() && json.object().value(QStringLiteral("sample_rate")).toInt() == spec.sample_rate;
     };
 
-    QString hardware = QStringLiteral("%1 cœurs logiques").arg(QThread::idealThreadCount());
-    QString recommendation = QStringLiteral("Mel-RoFormer-Small-Unwa");
-    bool gpu_detected = false;
-    bool nvidia_cuda_available = false;
-    QProcess gpu_probe;
-    gpu_probe.start(QStringLiteral("nvidia-smi"), {QStringLiteral("--query-gpu=name,memory.total"),
-                       QStringLiteral("--format=csv,noheader,nounits")});
-    if (gpu_probe.waitForFinished(1200) && gpu_probe.exitCode() == 0) {
-        const QString line = QString::fromLocal8Bit(gpu_probe.readAllStandardOutput()).trimmed().section('\n', 0, 0);
-        const QStringList fields = line.split(',');
-        bool ok = false;
-        const qint64 vram_mb = fields.size() > 1 ? fields.at(1).trimmed().toLongLong(&ok) : 0;
-        if (ok) {
-            hardware += QStringLiteral(" · %1 (%2 Go VRAM)").arg(fields.front().trimmed()).arg(vram_mb / 1024.0, 0, 'f', 1);
-            recommendation = vram_mb >= 8192 ? QStringLiteral("Mel-RoFormer-Unwa-v1e-plus")
-                : vram_mb >= 4096 ? QStringLiteral("BS-RoFormer-Viperx-1297") : QStringLiteral("Mel-RoFormer-Small-Unwa");
-            gpu_detected = true;
-            nvidia_cuda_available = true;
-        } else {
-            hardware += QStringLiteral(" · GPU NVIDIA détecté, VRAM indisponible");
-            recommendation = QStringLiteral("Mel-RoFormer-Small-Unwa");
-            gpu_detected = true;
-        }
-    }
-    if (!gpu_detected) {
-        QProcess adapter_probe;
-#ifdef Q_OS_WIN
-        adapter_probe.start(QStringLiteral("powershell.exe"), {QStringLiteral("-NoProfile"), QStringLiteral("-NonInteractive"),
-            QStringLiteral("-Command"), QStringLiteral("$g=Get-CimInstance Win32_VideoController | Where-Object {$_.Name -notlike '*Microsoft Basic*'} | Select-Object -First 1 Name,AdapterRAM; if($g){$g|ConvertTo-Json -Compress}")});
-        if (adapter_probe.waitForFinished(2200) && adapter_probe.exitCode() == 0) {
-            const auto json = QJsonDocument::fromJson(adapter_probe.readAllStandardOutput()).object();
-            const QString name = json.value(QStringLiteral("Name")).toString().trimmed();
-            const double bytes = json.value(QStringLiteral("AdapterRAM")).toDouble();
-            if (!name.isEmpty()) {
-                hardware += QStringLiteral(" · %1").arg(name);
-                if (bytes > 0) {
-                    const double vram_gb = bytes / (1024.0 * 1024.0 * 1024.0);
-                    hardware += QStringLiteral(" (%1 Go de mémoire vidéo détectée)").arg(vram_gb, 0, 'f', 1);
-                    recommendation = bytes >= 8.0 * 1024 * 1024 * 1024
-                        ? QStringLiteral("Mel-RoFormer-Unwa-v1e-plus")
-                        : bytes >= 4.0 * 1024 * 1024 * 1024 ? QStringLiteral("BS-RoFormer-Viperx-1297") : QStringLiteral("Mel-RoFormer-Small-Unwa");
-                } else {
-                    hardware += QStringLiteral(" (VRAM non remontée par le pilote)");
-                    recommendation = QStringLiteral("Mel-RoFormer-Small-Unwa");
-                }
-                gpu_detected = true;
-            }
-        }
-#elif defined(Q_OS_MACOS)
-        adapter_probe.start(QStringLiteral("system_profiler"), {QStringLiteral("SPDisplaysDataType")});
-        if (adapter_probe.waitForFinished(3000) && adapter_probe.exitCode() == 0) {
-            const QString output = QString::fromLocal8Bit(adapter_probe.readAllStandardOutput());
-            const auto match = QRegularExpression(QStringLiteral("Chipset Model: (.+)")).match(output);
-            if (match.hasMatch()) {
-                hardware += QStringLiteral(" · %1").arg(match.captured(1).trimmed());
-                hardware += QStringLiteral(" (accélération Metal si disponible, sinon CPU)");
-                gpu_detected = true;
-            }
-        }
-#else
-        adapter_probe.start(QStringLiteral("lspci"));
-        if (adapter_probe.waitForFinished(2000) && adapter_probe.exitCode() == 0) {
-            const QString output = QString::fromLocal8Bit(adapter_probe.readAllStandardOutput());
-            const auto match = QRegularExpression(QStringLiteral("(?im)^.*(?:VGA compatible controller|3D controller|Display controller): (.+)$"))
-                                   .match(output);
-            if (match.hasMatch()) {
-                hardware += QStringLiteral(" · %1").arg(match.captured(1).trimmed());
-                hardware += QStringLiteral(" (profil CPU conseillé sauf accélération CUDA disponible)");
-                gpu_detected = true;
-            }
-        }
-#endif
-    }
-    if (!gpu_detected) hardware += QStringLiteral(" · aucun GPU détecté, profil CPU conseillé");
-
     auto* root = new QVBoxLayout(&dialog);
     auto* stack = new QStackedWidget(&dialog);
     root->addWidget(stack, 1);
@@ -1535,51 +1473,42 @@ void MainWindow::openVoiceSeparation() {
     auto* setup = new QWidget(stack);
     auto* setup_layout = new QVBoxLayout(setup);
     setup_layout->setContentsMargins(28, 24, 28, 20);
-    auto* brand = new QLabel(QStringLiteral("RYTHMO  /  OUTILS AUDIO"), setup);
-    brand->setStyleSheet(QStringLiteral("color:#69CAF0;font-weight:700;letter-spacing:1px;"));
-    auto* heading = new QLabel(QStringLiteral("Choisir le profil de séparation"), setup);
+    auto* heading = new QLabel(QStringLiteral("Séparation vocale"), setup);
     heading->setStyleSheet(QStringLiteral("font-size:22pt;font-weight:700;"));
-    heading->setWordWrap(true);
-    auto* intro = new QLabel(QStringLiteral("Les trois profils utilisent des modèles RoFormer fonctionnant à 44,1 kHz. Le meilleur choix dépend de la mémoire disponible ; le profil élevé utilise Mel-RoFormer by unwa v1e+. Le traitement reste local."), setup);
+    auto* intro = new QLabel(QStringLiteral("Choisis un niveau de séparation. Les modèles fonctionnent localement."), setup);
     intro->setWordWrap(true);
     intro->setStyleSheet(QStringLiteral("color:#AEBCC9;font-size:11pt;"));
-    auto* detected = new QLabel(QStringLiteral("Matériel détecté : %1").arg(hardware), setup);
-    detected->setWordWrap(true);
-    detected->setStyleSheet(QStringLiteral("background:#121C26;border:1px solid #2A3A49;border-radius:10px;padding:11px;color:#E3EAF1;"));
     auto* profile = new QComboBox(setup);
-    profile->addItem(QStringLiteral("Léger · Mel-RoFormer Small by unwa · 44,1 kHz · ≈203 Mo · CPU / GPU modeste"), QStringLiteral("Mel-RoFormer-Small-Unwa"));
-    profile->addItem(QStringLiteral("Moyen · BS-RoFormer ViperX 1297 · 44,1 kHz · ≈639 Mo · GPU à partir de 4 Go"), QStringLiteral("BS-RoFormer-Viperx-1297"));
-    profile->addItem(QStringLiteral("Élevé · Mel-RoFormer by unwa v1e+ · 44,1 kHz · ≈913 Mo · GPU 8 Go+ conseillé"), QStringLiteral("Mel-RoFormer-Unwa-v1e-plus"));
-    profile->setCurrentIndex(std::max(0, profile->findData(recommendation)));
+    profile->addItem(QStringLiteral("Faible"), QStringLiteral("Mel-RoFormer-Small-Unwa"));
+    profile->addItem(QStringLiteral("Moyen"), QStringLiteral("BS-RoFormer-Viperx-1297"));
+    profile->addItem(QStringLiteral("Élevé"), QStringLiteral("Mel-RoFormer-Unwa-v1e-plus"));
+    if (!custom_model_id.isEmpty() && QFileInfo(custom_model_directory).isDir())
+        profile->addItem(QStringLiteral("Modèle personnel"), custom_model_id);
+    profile->addItem(QStringLiteral("Importer un modèle personnel…"), QStringLiteral("__import__"));
+    const QString initial_profile = model_settings.value(QStringLiteral("voice/selectedProfile"),
+        QStringLiteral("Mel-RoFormer-Small-Unwa")).toString();
+    profile->setCurrentIndex(std::max(0, profile->findData(initial_profile)));
     auto* delete_model_button = new QPushButton(QStringLiteral("Supprimer le modèle installé"), setup);
     delete_model_button->setEnabled(false);
-    auto* recommend_label = new QLabel(setup);
-    recommend_label->setWordWrap(true);
-    recommend_label->setStyleSheet(QStringLiteral("color:#69CAF0;font-weight:700;padding:4px;"));
-    const QString recommended_model = recommendation;
-    auto update_recommendation = [recommend_label, profile, model_spec, recommended_model] {
-        const auto spec = model_spec(profile->currentData().toString());
-        const auto recommended_spec = model_spec(recommended_model);
-        recommend_label->setText(QStringLiteral("Recommandé pour ce matériel : %1. Profil sélectionné : %2. %3")
-                                     .arg(recommended_spec.repo, spec.repo, spec.summary));
-    };
-    connect(profile, qOverload<int>(&QComboBox::currentIndexChanged), &dialog, [update_recommendation] { update_recommendation(); });
-    update_recommendation();
     auto* model_info = new QLabel(setup);
     model_info->setWordWrap(true);
     model_info->setStyleSheet(QStringLiteral("color:#AEBCC9;font-size:10pt;"));
     const auto update_model_info = [model_info, model_path, model_spec, model_is_installed, model_directory_exists, profile, delete_model_button] {
         const QString id = profile->currentData().toString();
-        const auto spec = model_spec(id);
+        if (id == QStringLiteral("__import__")) {
+            model_info->setText(QStringLiteral("Importe un checkpoint RoFormer et sa configuration YAML."));
+            delete_model_button->setEnabled(false);
+            return;
+        }
         const QFileInfo info(model_path(id));
         if (model_is_installed(id))
-            model_info->setText(QStringLiteral("Modèle installé · %1 · %2 Mo").arg(spec.repo).arg(info.size() / (1024.0 * 1024.0), 0, 'f', 0));
+            model_info->setText(QStringLiteral("Installé · %1 Mo").arg(info.size() / (1024.0 * 1024.0), 0, 'f', 0));
         else if (model_directory_exists(id))
-            model_info->setText(QStringLiteral("Installation partielle détectée · %1. Tu peux la supprimer avant de relancer le téléchargement.").arg(spec.repo));
+            model_info->setText(QStringLiteral("Installation incomplète · supprime-la puis réessaie."));
         else
-            model_info->setText(QStringLiteral("%1 · téléchargement du modèle %2 Mo environ · connexion Internet requise.")
-                                .arg(spec.repo).arg(spec.minimum_bytes / (1024.0 * 1024.0), 0, 'f', 0));
-        delete_model_button->setEnabled(model_directory_exists(id));
+            model_info->setText(QStringLiteral("Téléchargement requis · environ %1 Mo.")
+                                .arg(model_spec(id).minimum_bytes / (1024.0 * 1024.0), 0, 'f', 0));
+        delete_model_button->setEnabled(model_directory_exists(id) && id != custom_model_id);
     };
     update_model_info();
     auto* progress_text = new QLabel(setup);
@@ -1592,26 +1521,28 @@ void MainWindow::openVoiceSeparation() {
     auto* continue_button = new QPushButton(setup);
     continue_button->setDefault(true);
     const auto update_continue_text = [continue_button, model_is_installed, profile] {
-        continue_button->setText(model_is_installed(profile->currentData().toString())
-            ? QStringLiteral("Ouvrir l’espace de traitement") : QStringLiteral("Télécharger et installer ce modèle"));
+        const QString id = profile->currentData().toString();
+        continue_button->setText(id == QStringLiteral("__import__")
+            ? QStringLiteral("Importer un modèle")
+            : model_is_installed(id) ? QStringLiteral("Continuer") : QStringLiteral("Télécharger le modèle"));
     };
-    connect(profile, qOverload<int>(&QComboBox::currentIndexChanged), &dialog, [update_model_info, update_continue_text] {
-        update_model_info();
-        update_continue_text();
-    });
+    connect(profile, qOverload<int>(&QComboBox::currentIndexChanged), &dialog,
+        [update_model_info, update_continue_text, &model_settings, profile](int) {
+            update_model_info();
+            update_continue_text();
+            const QString id = profile->currentData().toString();
+            if (!id.isEmpty() && id != QStringLiteral("__import__"))
+                model_settings.setValue(QStringLiteral("voice/selectedProfile"), id);
+        });
     update_continue_text();
     actions->addWidget(back);
     actions->addStretch(1);
     actions->addWidget(continue_button);
-    setup_layout->addWidget(brand);
-    setup_layout->addSpacing(6);
     setup_layout->addWidget(heading);
     setup_layout->addWidget(intro);
-    setup_layout->addWidget(detected);
     setup_layout->addWidget(profile);
-    setup_layout->addWidget(delete_model_button, 0, Qt::AlignLeft);
-    setup_layout->addWidget(recommend_label);
     setup_layout->addWidget(model_info);
+    setup_layout->addWidget(delete_model_button, 0, Qt::AlignLeft);
     setup_layout->addWidget(progress_text);
     setup_layout->addWidget(progress);
     setup_layout->addStretch(1);
@@ -1621,11 +1552,11 @@ void MainWindow::openVoiceSeparation() {
     auto* separation = new QWidget(stack);
     auto* separation_layout = new QVBoxLayout(separation);
     separation_layout->setContentsMargins(28, 24, 28, 20);
-    auto* separation_title = new QLabel(QStringLiteral("Séparer les voix d’une scène"), separation);
+    auto* separation_title = new QLabel(QStringLiteral("Séparation vocale"), separation);
     separation_title->setStyleSheet(QStringLiteral("font-size:22pt;font-weight:700;"));
-    auto* separation_description = new QLabel(QStringLiteral("Dépose des fichiers audio ou vidéo. Rythmo crée deux sorties par source : Voix et M&E. Les pistes multicanales sont séparées canal par canal puis réassemblées avec le même nombre de canaux."), separation);
+    auto* separation_description = new QLabel(QStringLiteral("Ajoute des fichiers audio ou vidéo. Rythmo crée une piste voix et une piste musique."), separation);
     separation_description->setWordWrap(true);
-    auto* drop_zone = new QLabel(QStringLiteral("Dépose les fichiers vidéo ou audio ici\nMP4 · MKV · MOV · WAV · MP3 · FLAC · OGG…"), separation);
+    auto* drop_zone = new QLabel(QStringLiteral("Dépose les fichiers ici ou ajoute-les avec le bouton ci-dessous."), separation);
     drop_zone->setObjectName(QStringLiteral("voiceDropZone"));
     drop_zone->setAlignment(Qt::AlignCenter);
     drop_zone->setAcceptDrops(true);
@@ -1661,7 +1592,7 @@ void MainWindow::openVoiceSeparation() {
     format_row->addWidget(format_label);
     format_row->addWidget(output_format);
     format_row->addStretch(1);
-    auto* runtime_info = new QLabel(QStringLiteral("Les profils utilisent uniquement des modèles RoFormer et produisent Voix + M&E. Le profil élevé est Mel-RoFormer by unwa v1e+. Les fichiers restent sur l’appareil ; le moteur et le modèle sont téléchargés une première fois."), separation);
+    auto* runtime_info = new QLabel(QStringLiteral("Le traitement reste local. Le moteur et le modèle sont téléchargés lors de leur première utilisation."), separation);
     runtime_info->setWordWrap(true);
     runtime_info->setStyleSheet(QStringLiteral("background:#121C26;border:1px solid #2A3A49;border-radius:10px;padding:12px;color:#AEBCC9;"));
     auto* work_progress = new QProgressBar(separation);
@@ -1669,7 +1600,7 @@ void MainWindow::openVoiceSeparation() {
     work_progress->hide();
     auto* work_actions = new QHBoxLayout;
     auto* change_profile = new QPushButton(QStringLiteral("Profil du modèle"), separation);
-    auto* separate_button = new QPushButton(QStringLiteral("Séparer Voix + M&E"), separation);
+    auto* separate_button = new QPushButton(QStringLiteral("Séparer"), separation);
     auto* close = new QPushButton(QStringLiteral("Revenir \u00e0 l\u2019accueil"), separation);
     work_actions->addWidget(change_profile);
     work_actions->addStretch(1);
@@ -2108,7 +2039,7 @@ void MainWindow::openVoiceSeparation() {
             return;
         }
         const auto answer = QMessageBox::question(&dialog, QStringLiteral("Supprimer le modèle"),
-            QStringLiteral("Supprimer les fichiers installés du modèle « %1 » ?\n\nCette action libérera l’espace disque correspondant. Le modèle pourra être téléchargé à nouveau. Le moteur local et les autres modèles resteront en place.").arg(spec.repo),
+            QStringLiteral("Supprimer les fichiers installés du modèle sélectionné ?\n\nLe modèle pourra être téléchargé à nouveau. Le moteur local restera en place."),
             QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
         if (answer != QMessageBox::Yes) return;
         QDir model_directory(canonical_target);
@@ -2119,7 +2050,76 @@ void MainWindow::openVoiceSeparation() {
         update_model_info();
         update_continue_text();
     });
+    const auto import_custom_model = [&] {
+        QMessageBox::information(&dialog, QStringLiteral("Fonction avancée"),
+            QStringLiteral("L’import de modèle s’adresse aux utilisateurs avancés. Seuls les checkpoints RoFormer accompagnés de leur configuration YAML sont pris en charge. Rythmo ne peut pas valider la provenance ni la sécurité d’un modèle tiers."));
+        const QString checkpoint = QFileDialog::getOpenFileName(&dialog, QStringLiteral("Choisir le checkpoint RoFormer"),
+            QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation),
+            QStringLiteral("Checkpoints RoFormer (*.ckpt)"));
+        if (checkpoint.isEmpty()) return;
+        const QString config = QFileDialog::getOpenFileName(&dialog, QStringLiteral("Choisir la configuration YAML"),
+            QFileInfo(checkpoint).absolutePath(), QStringLiteral("Configuration YAML (*.yaml *.yml)"));
+        if (config.isEmpty()) return;
+        const QFileInfo checkpoint_info(checkpoint), config_info(config);
+        QFile config_file(config);
+        if (checkpoint_info.size() < 1024 || checkpoint_info.size() > (qint64(12) << 30)
+            || checkpoint_info.suffix().compare(QStringLiteral("ckpt"), Qt::CaseInsensitive) != 0
+            || config_info.size() < 16 || config_info.size() > 1024 * 1024
+            || !config_file.open(QIODevice::ReadOnly)) {
+            QMessageBox::warning(&dialog, QStringLiteral("Modèle invalide"),
+                QStringLiteral("Le checkpoint ou la configuration est vide, trop volumineux ou dans un format non pris en charge."));
+            return;
+        }
+        const QByteArray yaml = config_file.read(1024 * 1024 + 1);
+        const QString yaml_text = QString::fromUtf8(yaml);
+        if (yaml.size() > 1024 * 1024 || !yaml_text.contains(QStringLiteral("model:"))
+            || !yaml_text.contains(QStringLiteral("sample_rate: 44100"))) {
+            QMessageBox::warning(&dialog, QStringLiteral("Configuration invalide"),
+                QStringLiteral("La configuration doit décrire un modèle RoFormer à 44,1 kHz."));
+            return;
+        }
+        const QString token = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        const QString target_dir = QDir(model_dir).filePath(QStringLiteral("custom/") + token);
+        if (!QDir().mkpath(target_dir)
+            || !QFile::copy(checkpoint, QDir(target_dir).filePath(checkpoint_info.fileName()))
+            || !QFile::copy(config, QDir(target_dir).filePath(config_info.fileName()))) {
+            QDir(target_dir).removeRecursively();
+            QMessageBox::warning(&dialog, QStringLiteral("Import impossible"),
+                QStringLiteral("Rythmo n’a pas pu copier les deux fichiers dans ses données locales."));
+            return;
+        }
+        custom_model_id = QStringLiteral("custom:") + token;
+        custom_model_directory = target_dir;
+        custom_checkpoint = checkpoint_info.fileName();
+        custom_config = config_info.fileName();
+        model_settings.setValue(QStringLiteral("voice/customModelId"), custom_model_id);
+        model_settings.setValue(QStringLiteral("voice/customModelDirectory"), custom_model_directory);
+        model_settings.setValue(QStringLiteral("voice/customCheckpoint"), custom_checkpoint);
+        model_settings.setValue(QStringLiteral("voice/customConfig"), custom_config);
+        model_settings.setValue(QStringLiteral("voice/selectedProfile"), custom_model_id);
+        int custom_index = profile->findData(custom_model_id);
+        if (custom_index < 0) {
+            custom_index = profile->count() - 1;
+            profile->insertItem(custom_index, QStringLiteral("Modèle personnel"), custom_model_id);
+        }
+        profile->setCurrentIndex(custom_index);
+        update_model_info();
+        update_continue_text();
+    };
+    connect(profile, qOverload<int>(&QComboBox::activated), &dialog, [&](int) {
+        if (profile->currentData().toString() != QStringLiteral("__import__")) return;
+        const int previous_index = std::max(0, profile->findData(
+            model_settings.value(QStringLiteral("voice/selectedProfile"), QStringLiteral("Mel-RoFormer-Small-Unwa")).toString()));
+        import_custom_model();
+        if (profile->currentData().toString() == QStringLiteral("__import__"))
+            profile->setCurrentIndex(previous_index);
+    });
     connect(continue_button, &QPushButton::clicked, &dialog, [&] {
+        if (profile->currentData().toString() == QStringLiteral("__import__")) {
+            import_custom_model();
+            return;
+        }
+
         const QString model_id = profile->currentData().toString();
         const auto spec = model_spec(model_id);
         active_model_id = model_id;
@@ -2285,7 +2285,7 @@ void MainWindow::openVoiceSeparation() {
         start_runtime_process(StageRunWorker, python_exe,
             {QStringLiteral("-c"), ffmpeg_bootstrap, worker_script, QStringLiteral("--model"), job_model_id,
              QStringLiteral("--manifest"), manifest_path, QStringLiteral("--model-dir"),
-             QDir(model_dir).filePath(model_spec(job_model_id).repo)},
+             model_directory_path(job_model_id)},
             QStringLiteral("Le moteur cinématique sépare Voix + M&E sur %1 fichier(s)…").arg(job_sources.size()));
     };
 

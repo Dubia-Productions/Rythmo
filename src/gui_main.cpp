@@ -4,6 +4,7 @@
 #include <QCommandLineParser>
 #include <QDir>
 #include <QFileInfo>
+#include <QIcon>
 
 #ifdef Q_OS_WIN
 #ifndef NOMINMAX
@@ -41,6 +42,7 @@ int main(int argc, char* argv[]) {
     isolatePortableQtPlugins();
     QApplication app(argc, argv);
     QCoreApplication::setApplicationName("Rythmo by Dubia Productions");
+    app.setWindowIcon(QIcon(QStringLiteral(":/app/rythmo.png")));
     QCoreApplication::setApplicationVersion(QStringLiteral(RYTHMO_VERSION));
     QCommandLineParser parser;
     parser.setApplicationDescription("Rythmo by Dubia Productions: studio de synchronisation et de production vocale.");

@@ -38,7 +38,7 @@ QT_CONFIG=$(find "$ROOT/build/tools/Qt/6.8.3" -path '*/lib/cmake/Qt6/Qt6Config.c
 [ -n "$QT_CONFIG" ] || { echo "Échec de l’installation du SDK Qt 6.8.3 macOS." >&2; exit 1; }
 QT_PREFIX=${QT_CONFIG%/lib/cmake/Qt6/Qt6Config.cmake}
 export CMAKE_PREFIX_PATH="$QT_PREFIX${CMAKE_PREFIX_PATH:+:$CMAKE_PREFIX_PATH}"
-cmake -S "$ROOT" -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON "-DRYTHMO_VERSION=${RYTHMO_VERSION:-0.4.0}" -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 \
+cmake -S "$ROOT" -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON "-DRYTHMO_VERSION=${RYTHMO_VERSION:-0.4.1}" -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 \
   "-DRYTHMO_PYTHON_RUNTIME_ARCHIVE=$ROOT/build/tools/python-runtime/macos-arm64.tar.gz"
 cmake --build "$BUILD_DIR" --parallel
 ctest --test-dir "$BUILD_DIR" --output-on-failure

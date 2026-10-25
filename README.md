@@ -62,3 +62,10 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
 ctest --test-dir build --output-on-failure
 ~~~
+
+
+## v0.4.1
+
+- Choix des profils de séparation vocale simplifié : faible, moyen ou élevé.
+- Import local d’un checkpoint RoFormer et de sa configuration YAML pour les utilisateurs avancés.
+- Icône Rythmo appliquée à l’application Windows, macOS et Linux.

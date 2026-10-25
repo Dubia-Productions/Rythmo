@@ -4,6 +4,9 @@
     <file alias="Montserrat-SemiBold.ttf">fonts/Montserrat-SemiBold.ttf</file>
     <file alias="Montserrat-Bold.ttf">fonts/Montserrat-Bold.ttf</file>
   </qresource>
+  <qresource prefix="/app">
+    <file alias="rythmo.png">RYTHMO_LOGO_PNG-ROUNDED.png</file>
+  </qresource>
   <qresource prefix="/runtime">
     <file alias="cinematic_separation_worker.py">cinematic_separation_worker.py</file>
   </qresource>
