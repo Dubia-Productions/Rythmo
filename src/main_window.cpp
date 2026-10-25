@@ -3441,9 +3441,18 @@ void MainWindow::exportVideoWithRhythm() {
     export_effects_enabled_ = include_export_effects;
     export_encoder_ = encoder;
     export_fps_ = fps;
+    if (!export_temp_dir_.isValid()) {
+        QMessageBox::warning(this, QStringLiteral("Dossier temporaire indisponible"),
+            QStringLiteral("Rythmo ne peut pas préparer un fichier temporaire local pour l’export."));
+        return;
+    }
     export_output_path_ = output;
-    export_temp_path_ = QDir(output_info.absolutePath()).filePath(QStringLiteral(".%1.rythmo-partial.%2")
-        .arg(output_info.completeBaseName(), extension));
+    // FFmpeg is a child process and may not inherit macOS's file-panel access
+    // to protected folders. Encode inside Rythmo's private temp directory, then
+    // let the GUI process copy the finished file to the selected destination.
+    export_temp_path_ = QDir(export_temp_dir_.path()).filePath(
+        QStringLiteral("%1.rythmo-partial.%2")
+            .arg(QUuid::createUuid().toString(QUuid::WithoutBraces), extension));
     QFile::remove(export_temp_path_);
     export_frame_index_ = 0;
     export_frame_count_ = static_cast<qint64>(std::ceil(player_->duration() * fps / 1000.0));
@@ -3641,31 +3650,36 @@ void MainWindow::finishVideoExport(int exit_code, QProcess::ExitStatus status) {
         export_progress_ = nullptr;
     }
     if (success) {
-        const QFileInfo partial_info(export_temp_path_);
-        bool committed = partial_info.isFile() && partial_info.size() > 0;
-        QString backup_path;
-        if (committed && QFileInfo::exists(export_output_path_)) {
-            const QFileInfo output_info(export_output_path_);
-            backup_path = output_info.dir().filePath(QStringLiteral(".%1.rythmo-backup.%2.%3")
-                .arg(output_info.completeBaseName(), QUuid::createUuid().toString(QUuid::WithoutBraces), output_info.suffix()));
-            committed = QFile::rename(export_output_path_, backup_path);
+        QFile staged_file(export_temp_path_);
+        QSaveFile destination(export_output_path_);
+        destination.setDirectWriteFallback(false);
+        bool committed = staged_file.open(QIODevice::ReadOnly) && staged_file.size() > 0
+            && destination.open(QIODevice::WriteOnly);
+        QString transfer_error;
+        if (!committed) {
+            transfer_error = staged_file.isOpen() ? destination.errorString() : staged_file.errorString();
+        } else {
+            QByteArray buffer(1024 * 1024, Qt::Uninitialized);
+            while (!staged_file.atEnd()) {
+                const qint64 bytes_read = staged_file.read(buffer.data(), buffer.size());
+                if (bytes_read <= 0 || destination.write(buffer.constData(), bytes_read) != bytes_read) {
+                    committed = false;
+                    transfer_error = bytes_read <= 0 ? staged_file.errorString() : destination.errorString();
+                    break;
+                }
+            }
+            committed = committed && destination.commit();
+            if (!committed && transfer_error.isEmpty()) transfer_error = destination.errorString();
         }
-        if (committed) committed = QFile::rename(export_temp_path_, export_output_path_);
+        if (!committed) destination.cancelWriting();
+        QFile::remove(export_temp_path_);
         if (committed) {
-            if (!backup_path.isEmpty()) QFile::remove(backup_path);
             status_label_->setText("Export terminé : " + QFileInfo(export_output_path_).fileName());
             QMessageBox::information(this, "Export terminé", "La vidéo avec sa bande rythmo a été créée :\n" + export_output_path_);
         } else {
-            bool restored_original = true;
-            if (!backup_path.isEmpty() && !QFileInfo::exists(export_output_path_))
-                restored_original = QFile::rename(backup_path, export_output_path_);
-            QFile::remove(export_temp_path_);
-            QString recovery_note;
-            if (!restored_original)
-                recovery_note = QStringLiteral("\n\nLa sauvegarde de la vidéo d’origine se trouve ici :\n%1").arg(backup_path);
-            QMessageBox::warning(this, "Export terminé mais non déplacé",
-                "FFmpeg a terminé l’encodage, mais Rythmo n’a pas pu enregistrer le résultat à la destination choisie. "
-                "Le fichier existant a été conservé. Vérifie les droits et l’état du disque, puis réessaie." + recovery_note);
+            QMessageBox::warning(this, "Enregistrement impossible",
+                QStringLiteral("FFmpeg a terminé l’encodage, mais Rythmo n’a pas pu enregistrer le fichier dans le dossier choisi :\n%1\n\nDétail système : %2\n\nLe fichier existant, s’il y en avait un, a été conservé.")
+                    .arg(QFileInfo(export_output_path_).absolutePath(), transfer_error));
         }
     } else if (export_cancelled_) {
         QFile::remove(export_temp_path_);
