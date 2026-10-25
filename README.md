@@ -45,7 +45,7 @@ Un clic droit sur la bande ajoute une réplique à l’emplacement choisi. Sur u
 
 Chaque release fournit :
 
-- **Windows x64 et ARM64** : installateur et archive portable.
+- **Windows x64 et ARM64** : installateur `.exe` téléchargeable directement et archive portable `.zip`.
 - **macOS Intel et Apple Silicon** : un seul ZIP contenant directement Rythmo.app.
 - **Linux x64 et ARM64** : archive portable .tar.gz.
 
