@@ -3,6 +3,6 @@ Type=Application
 Name=Rythmo
 Comment=Création de bande rythmo et séparation vocale
 Exec=Rythmo
-Icon=rythmo-icon.png
+Icon=rythmo
 Terminal=false
 Categories=AudioVideo;Video;Audio;

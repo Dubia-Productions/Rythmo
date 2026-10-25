@@ -231,6 +231,19 @@ jobs:
           #!/bin/sh
           set -eu
           ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+          DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
+          install -D -m 644 "$ROOT/rythmo-icon.png" "$DATA_HOME/icons/hicolor/512x512/apps/rythmo.png"
+          mkdir -p "$DATA_HOME/applications"
+          cat > "$DATA_HOME/applications/rythmo.desktop" <<DESKTOP
+          [Desktop Entry]
+          Type=Application
+          Name=Rythmo
+          Comment=Création de bande rythmo et séparation vocale
+          Exec="$ROOT/Rythmo" %U
+          Icon=rythmo
+          Terminal=false
+          Categories=AudioVideo;Video;Audio;
+          DESKTOP
           if [ -n "${LD_LIBRARY_PATH:-}" ]; then export LD_LIBRARY_PATH="$ROOT/lib:$LD_LIBRARY_PATH"; else export LD_LIBRARY_PATH="$ROOT/lib"; fi
           export QT_PLUGIN_PATH="$ROOT/plugins"
           export QT_QPA_PLATFORM_PLUGIN_PATH="$ROOT/plugins/platforms"

@@ -43,6 +43,20 @@ target_link_libraries(rythmo-app PRIVATE rythmo Qt6::Widgets Qt6::Multimedia Qt6
 target_compile_definitions(rythmo-app PRIVATE RYTHMO_VERSION="${PROJECT_VERSION}")
 
 if(WIN32)
+  find_program(RYTHMO_POWERSHELL NAMES pwsh powershell REQUIRED)
+  set(RYTHMO_WINDOWS_ICON "${CMAKE_CURRENT_BINARY_DIR}/Rythmo.ico")
+  execute_process(
+    COMMAND "${RYTHMO_POWERSHELL}" -NoProfile -ExecutionPolicy Bypass
+            -File "${CMAKE_CURRENT_SOURCE_DIR}/packaging/windows/create-icon.ps1"
+            -Source "${CMAKE_CURRENT_SOURCE_DIR}/resources/RYTHMO_LOGO_PNG-ROUNDED.png"
+            -Output "${RYTHMO_WINDOWS_ICON}"
+    RESULT_VARIABLE icon_result ERROR_VARIABLE icon_error)
+  if(NOT icon_result EQUAL 0)
+    message(FATAL_ERROR "Failed to create the Windows application icon: ${icon_error}")
+  endif()
+  set(RYTHMO_WINDOWS_RC "${CMAKE_CURRENT_BINARY_DIR}/rythmo-icon.rc")
+  file(WRITE "${RYTHMO_WINDOWS_RC}" "IDI_ICON1 ICON DISCARDABLE \\\"${RYTHMO_WINDOWS_ICON}\\\"\\n")
+  target_sources(rythmo-app PRIVATE "${RYTHMO_WINDOWS_RC}")
   set_target_properties(rythmo-app PROPERTIES WIN32_EXECUTABLE TRUE)
   # The Windows x64 build script can target the portable package directly;
   # keep intermediate objects and tests in the regular build tree.
