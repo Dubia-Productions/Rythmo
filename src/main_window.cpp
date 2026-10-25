@@ -1493,7 +1493,7 @@ void MainWindow::openVoiceSeparation() {
     auto* model_info = new QLabel(setup);
     model_info->setWordWrap(true);
     model_info->setStyleSheet(QStringLiteral("color:#AEBCC9;font-size:10pt;"));
-    const auto update_model_info = [model_info, model_path, model_spec, model_is_installed, model_directory_exists, profile, delete_model_button] {
+    const auto update_model_info = [model_info, model_path, model_spec, model_is_installed, model_directory_exists, profile, delete_model_button, custom_model_id] {
         const QString id = profile->currentData().toString();
         if (id == QStringLiteral("__import__")) {
             model_info->setText(QStringLiteral("Importe un checkpoint RoFormer et sa configuration YAML."));
@@ -1781,6 +1781,13 @@ void MainWindow::openVoiceSeparation() {
 #endif
     };
     const auto start_torch_install = [&](bool use_mirror = false) {
+        bool nvidia_cuda_available = false;
+#if defined(Q_OS_WIN) || defined(Q_OS_LINUX)
+        QProcess gpu_probe;
+        gpu_probe.start(QStringLiteral("nvidia-smi"),
+                        {QStringLiteral("--query-gpu=name"), QStringLiteral("--format=csv,noheader")});
+        nvidia_cuda_available = gpu_probe.waitForFinished(1200) && gpu_probe.exitCode() == 0;
+#endif
         if (arm64_runtime) {
 #ifdef Q_OS_MACOS
             const QString torch_index = use_mirror
