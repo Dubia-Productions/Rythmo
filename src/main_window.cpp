@@ -647,7 +647,7 @@ void MainWindow::createUi() {
                         QFile::remove(partial_package_path);
                         restore_main_window();
                         QMessageBox::warning(this, QStringLiteral("Téléchargement incomplet"),
-                            QStringLiteral("Rythmo %1 n’a pas été téléchargé ou vérifié correctement. Réessaie avec une connexion Internet stable.")
+                            QStringLiteral("Rythmo %1 n’a pas été téléchargé ou vérifié correctement. Réessayez avec une connexion Internet stable.")
                                 .arg(tag));
                         return;
                     }
@@ -689,7 +689,7 @@ void MainWindow::createUi() {
                     if (!bundle_info.isDir() || bundle_info.canonicalFilePath().isEmpty()) {
                         restore_main_window();
                         QMessageBox::warning(this, QStringLiteral("Mise à jour impossible"),
-                            QStringLiteral("Le paquet Rythmo.app courant est introuvable. Déplace Rythmo dans Applications puis réessaie."));
+                            QStringLiteral("Le paquet Rythmo.app courant est introuvable. Déplacez Rythmo dans Applications, puis réessayez."));
                         return;
                     }
                     bundle = bundle_info.canonicalFilePath();
@@ -823,7 +823,7 @@ void MainWindow::createUi() {
         else player_->play();
     });
 
-    status_label_ = new QLabel("Ouvre un fichier DetX pour commencer.", this);
+    status_label_ = new QLabel("Ouvrez un fichier DetX pour commencer.", this);
     statusBar()->addWidget(status_label_, 1);
     timeline_->setSelectionHandler([this](int line_index, int track) {
         selected_timeline_track_ = std::clamp(track, 0, 3);
@@ -1113,7 +1113,7 @@ void MainWindow::showHome() {
             if (++shown == 3) break;
         }
         if (shown == 0) {
-            auto* empty = new QLabel(QStringLiteral("Tes projets DetX apparaîtront ici après leur première ouverture."), home_recent_panel_);
+            auto* empty = new QLabel(QStringLiteral("Vos projets DetX apparaîtront ici après leur première ouverture."), home_recent_panel_);
             empty->setStyleSheet(QStringLiteral("background:#111A23;color:#AEBCC9;border:1px solid #293B4B;border-radius:10px;padding:16px;"));
             row->addWidget(empty);
         }
@@ -1144,7 +1144,7 @@ void MainWindow::showProjectPage(const QString& module) {
         brand->setStyleSheet(QStringLiteral("background:transparent;color:#69CAF0;font-size:10pt;font-weight:700;letter-spacing:1px;"));
         projects_title_ = new QLabel(projects_widget_);
         projects_title_->setStyleSheet(QStringLiteral("background:transparent;color:#F1F6FB;font-size:26pt;font-weight:700;"));
-        auto* subtitle = new QLabel(QStringLiteral("Reprends un projet récent ou démarre une nouvelle session."), projects_widget_);
+        auto* subtitle = new QLabel(QStringLiteral("Reprenez un projet récent ou démarrez une nouvelle session."), projects_widget_);
         subtitle->setStyleSheet(QStringLiteral("background:transparent;color:#AEBCC9;font-size:11pt;"));
         auto* recent_heading = new QLabel(QStringLiteral("PROJETS RÉCENTS"), projects_widget_);
         recent_heading->setStyleSheet(QStringLiteral("background:transparent;color:#69CAF0;font-size:9pt;font-weight:700;letter-spacing:1px;"));
@@ -1253,7 +1253,7 @@ void MainWindow::chooseTimelineFont() {
     dialog.setWindowTitle(QStringLiteral("Police d’écriture de la bande rythmo"));
     dialog.setMinimumWidth(480);
     auto* layout = new QVBoxLayout(&dialog);
-    auto* description = new QLabel(QStringLiteral("Choisis une police installée ou importe un fichier de police."), &dialog);
+    auto* description = new QLabel(QStringLiteral("Choisissez une police installée ou importez un fichier de police."), &dialog);
     auto* font_combo = new QFontComboBox(&dialog);
     font_combo->setCurrentFont(QFont(settings.value(QStringLiteral("timelineFontFamily"), QStringLiteral("Montserrat")).toString()));
     auto* preview = new QLabel(QStringLiteral("Aperçu: la voix prend sa place."), &dialog);
@@ -1475,7 +1475,7 @@ void MainWindow::openVoiceSeparation() {
     setup_layout->setContentsMargins(28, 24, 28, 20);
     auto* heading = new QLabel(QStringLiteral("Séparation vocale"), setup);
     heading->setStyleSheet(QStringLiteral("font-size:22pt;font-weight:700;"));
-    auto* intro = new QLabel(QStringLiteral("Choisis un niveau de séparation. Les modèles fonctionnent localement."), setup);
+    auto* intro = new QLabel(QStringLiteral("Choisissez un niveau de séparation. Les modèles fonctionnent localement."), setup);
     intro->setWordWrap(true);
     intro->setStyleSheet(QStringLiteral("color:#AEBCC9;font-size:11pt;"));
     auto* profile = new QComboBox(setup);
@@ -1496,7 +1496,7 @@ void MainWindow::openVoiceSeparation() {
     const auto update_model_info = [model_info, model_path, model_spec, model_is_installed, model_directory_exists, profile, delete_model_button, custom_model_id] {
         const QString id = profile->currentData().toString();
         if (id == QStringLiteral("__import__")) {
-            model_info->setText(QStringLiteral("Importe un checkpoint RoFormer et sa configuration YAML."));
+            model_info->setText(QStringLiteral("Importez un checkpoint RoFormer et sa configuration YAML."));
             delete_model_button->setEnabled(false);
             return;
         }
@@ -1504,7 +1504,7 @@ void MainWindow::openVoiceSeparation() {
         if (model_is_installed(id))
             model_info->setText(QStringLiteral("Installé · %1 Mo").arg(info.size() / (1024.0 * 1024.0), 0, 'f', 0));
         else if (model_directory_exists(id))
-            model_info->setText(QStringLiteral("Installation incomplète · supprime-la puis réessaie."));
+            model_info->setText(QStringLiteral("Installation incomplète · supprimez-la, puis réessayez."));
         else
             model_info->setText(QStringLiteral("Téléchargement requis · environ %1 Mo.")
                                 .arg(model_spec(id).minimum_bytes / (1024.0 * 1024.0), 0, 'f', 0));
@@ -1554,9 +1554,9 @@ void MainWindow::openVoiceSeparation() {
     separation_layout->setContentsMargins(28, 24, 28, 20);
     auto* separation_title = new QLabel(QStringLiteral("Séparation vocale"), separation);
     separation_title->setStyleSheet(QStringLiteral("font-size:22pt;font-weight:700;"));
-    auto* separation_description = new QLabel(QStringLiteral("Ajoute des fichiers audio ou vidéo. Rythmo crée une piste voix et une piste musique."), separation);
+    auto* separation_description = new QLabel(QStringLiteral("Ajoutez des fichiers audio ou vidéo. Rythmo crée une piste voix et une piste musique."), separation);
     separation_description->setWordWrap(true);
-    auto* drop_zone = new QLabel(QStringLiteral("Dépose les fichiers ici ou ajoute-les avec le bouton ci-dessous."), separation);
+    auto* drop_zone = new QLabel(QStringLiteral("Déposez les fichiers ici ou ajoutez-les avec le bouton ci-dessous."), separation);
     drop_zone->setObjectName(QStringLiteral("voiceDropZone"));
     drop_zone->setAlignment(Qt::AlignCenter);
     drop_zone->setAcceptDrops(true);
@@ -2004,7 +2004,7 @@ void MainWindow::openVoiceSeparation() {
             progress_text->setText(QStringLiteral("Téléchargement incomplet."));
             progress_text->show();
             QMessageBox::warning(&dialog, QStringLiteral("Modèle indisponible"),
-                QStringLiteral("%1 n’a pas été téléchargé complètement (%2). Vérifie la connexion Internet et réessaie.").arg(spec.repo, error_text.isEmpty() ? QStringLiteral("connexion interrompue ou fichier incomplet") : error_text));
+                QStringLiteral("%1 n’a pas été téléchargé complètement (%2). Vérifiez la connexion Internet et réessayez.").arg(spec.repo, error_text.isEmpty() ? QStringLiteral("connexion interrompue ou fichier incomplet") : error_text));
             update_model_info();
             update_continue_text();
             return;
@@ -2052,7 +2052,7 @@ void MainWindow::openVoiceSeparation() {
         QDir model_directory(canonical_target);
         if (!model_directory.removeRecursively()) {
             QMessageBox::warning(&dialog, QStringLiteral("Suppression incomplète"),
-                QStringLiteral("Certains fichiers du modèle n’ont pas pu être supprimés. Ferme toute application qui les utilise, puis réessaie."));
+                QStringLiteral("Certains fichiers du modèle n’ont pas pu être supprimés. Fermez toute application qui les utilise, puis réessayez."));
         }
         update_model_info();
         update_continue_text();
@@ -2139,7 +2139,7 @@ void MainWindow::openVoiceSeparation() {
         }
         if (curl_path.isEmpty()) {
             QMessageBox::warning(&dialog, QStringLiteral("Téléchargeur indisponible"),
-                QStringLiteral("Le client curl de Windows est introuvable. Vérifie la connexion Internet et la présence de curl.exe (fourni avec Windows 10/11), puis réessaie."));
+                QStringLiteral("Le client curl de Windows est introuvable. Vérifiez la connexion Internet et la présence de curl.exe (fourni avec Windows 10/11), puis réessayez."));
             return;
         }
         if (downloading) return;
@@ -2367,7 +2367,7 @@ void MainWindow::openVoiceSeparation() {
                 start_next_extract();
             } else if (media_stage == MediaEncode) {
                 if (encode_index >= job_final_outputs.size() || QFileInfo(job_final_outputs.value(encode_index)).size() < 1024) {
-                    fail_job(QStringLiteral("Le format %1 n’a pas pu être créé. Vérifie que le FFmpeg installé contient l’encodeur correspondant.").arg(job_format.toUpper()));
+                    fail_job(QStringLiteral("Le format %1 n’a pas pu être créé. Vérifiez que le FFmpeg installé contient l’encodeur correspondant.").arg(job_format.toUpper()));
                     return;
                 }
                 ++encode_index;
@@ -2389,7 +2389,7 @@ void MainWindow::openVoiceSeparation() {
                 if (roformer_install_attempted) {
                     const QString detail = job_process_error.trimmed();
                     fail_job(detail.isEmpty()
-                        ? QStringLiteral("Le moteur local RoFormer ne peut pas être chargé. Vérifie le runtime et réessaie.")
+                        ? QStringLiteral("Le moteur local RoFormer ne peut pas être chargé. Vérifiez le runtime et réessayez.")
                         : QStringLiteral("Le moteur local RoFormer ne peut pas être chargé : %1").arg(detail.right(600)));
                     return;
                 }
@@ -2436,10 +2436,10 @@ void MainWindow::openVoiceSeparation() {
                     return;
                 }
                 if (package_index_dns_failure) {
-                    fail_job(QStringLiteral("Le runtime ne peut pas joindre l’index de paquets : le nom du serveur ne se résout pas par DNS. Vérifie la connexion Internet ou le DNS du Mac, puis réessaie. Aucun modèle n’a été installé.\n\nDétail : %1").arg(detail.right(500)));
+                    fail_job(QStringLiteral("Le runtime ne peut pas joindre l’index de paquets : le nom du serveur ne se résout pas par DNS. Vérifiez la connexion Internet ou le DNS du Mac, puis réessayez. Aucun modèle n’a été installé.\n\nDétail : %1").arg(detail.right(500)));
                 } else {
                     fail_job(detail.isEmpty()
-                        ? QStringLiteral("L’installation ou le lancement du moteur de séparation a échoué (étape %1). Vérifie la connexion Internet et l’espace disque.").arg(completed_stage)
+                        ? QStringLiteral("L’installation ou le lancement du moteur de séparation a échoué (étape %1). Vérifiez la connexion Internet et l’espace disque.").arg(completed_stage)
                         : detail);
                 }
                 return;
@@ -2509,7 +2509,7 @@ void MainWindow::openVoiceSeparation() {
                 if (job_format == QStringLiteral("mp3")) {
                     for (const auto& item : manifest_doc.array()) {
                         if (item.toObject().value(QStringLiteral("channels")).toInt() > 2) {
-                            fail_job(QStringLiteral("MP3 ne peut pas préserver plus de deux canaux. Choisis WAV, FLAC ou OGG pour garder le multicanal d’origine."));
+                            fail_job(QStringLiteral("MP3 ne peut pas préserver plus de deux canaux. Choisissez WAV, FLAC ou OGG pour garder le multicanal d’origine."));
                             return;
                         }
                     }
@@ -2526,16 +2526,16 @@ void MainWindow::openVoiceSeparation() {
 
     connect(separate_button, &QPushButton::clicked, &dialog, [&] {
         if (sources->count() == 0) {
-            QMessageBox::warning(&dialog, QStringLiteral("Fichiers manquants"), QStringLiteral("Dépose ou ajoute au moins un fichier vidéo ou audio."));
+            QMessageBox::warning(&dialog, QStringLiteral("Fichiers manquants"), QStringLiteral("Déposez ou ajoutez au moins un fichier vidéo ou audio."));
             return;
         }
         if (!model_is_installed(profile->currentData().toString())) {
-            QMessageBox::warning(&dialog, QStringLiteral("Modèle manquant"), QStringLiteral("Retourne au choix du profil et installe d’abord les poids du modèle sélectionné."));
+            QMessageBox::warning(&dialog, QStringLiteral("Modèle manquant"), QStringLiteral("Retournez au choix du profil et installez d’abord les poids du modèle sélectionné."));
             return;
         }
         const QString selected_output_dir = QDir::cleanPath(output_dir->text().trimmed());
         if (selected_output_dir.isEmpty() || !QDir().mkpath(selected_output_dir)) {
-            QMessageBox::warning(&dialog, QStringLiteral("Dossier de sortie manquant"), QStringLiteral("Choisis un dossier de sortie valide."));
+            QMessageBox::warning(&dialog, QStringLiteral("Dossier de sortie manquant"), QStringLiteral("Choisissez un dossier de sortie valide."));
             return;
         }
         // Resolve the bundled app binary first, even when separation starts
@@ -2543,7 +2543,7 @@ void MainWindow::openVoiceSeparation() {
         job_ffmpeg = findBundledOrSystemTool(QStringLiteral("ffmpeg"));
         if (!job_ffmpeg.isEmpty()) ffmpeg_path_ = job_ffmpeg;
         if (job_ffmpeg.isEmpty()) {
-            QMessageBox::warning(&dialog, QStringLiteral("FFmpeg requis"), QStringLiteral("FFmpeg est nécessaire pour décoder les vidéos, préparer les pistes et encoder les sorties. Place ffmpeg.exe avec Rythmo ou ajoute-le au PATH."));
+            QMessageBox::warning(&dialog, QStringLiteral("FFmpeg requis"), QStringLiteral("FFmpeg est nécessaire pour décoder les vidéos, préparer les pistes et encoder les sorties. Placez ffmpeg.exe avec Rythmo ou ajoutez-le au PATH."));
             return;
         }
         if (!job_temp.isValid()) {
@@ -2737,7 +2737,7 @@ void MainWindow::loadDocument(const QString& path) {
                     if (document_ && QFileInfo::exists(candidate)) loadVideo(candidate, false);
                 });
             }
-            else status_label_->setText(status_label_->text() + ". Vidéo référencée introuvable, sélectionne-la manuellement.");
+            else status_label_->setText(status_label_->text() + ". Vidéo référencée introuvable, sélectionnez-la manuellement.");
         }
     } catch (const std::exception& error) {
         QMessageBox::critical(this, "Ouverture impossible", QString::fromUtf8(error.what()));
@@ -2810,7 +2810,7 @@ void MainWindow::loadVideo(const QString& path, bool persist_reference) {
     ffmpeg_path_ = findBundledOrSystemTool(QStringLiteral("ffmpeg"));
     refreshTimeline();
     if (ffmpeg_path_.isEmpty()) {
-        status_label_->setText(QStringLiteral("FFmpeg introuvable : place FFmpeg à côté de l’application ou ajoute-le au PATH."));
+        status_label_->setText(QStringLiteral("FFmpeg introuvable : placez FFmpeg à côté de l’application ou ajoutez-le au PATH."));
         return;
     }
     media_fps_ = 0.0;
@@ -2955,7 +2955,7 @@ void MainWindow::finishFfmpegDecodeFallback(int exit_code, QProcess::ExitStatus 
     QFile::remove(decode_proxy_path_);
     decode_proxy_path_.clear();
     QMessageBox::warning(this, "Décodage vidéo impossible",
-        QStringLiteral("Qt Multimedia n’a pas pu lire cette vidéo et FFmpeg n’a pas réussi à créer l’aperçu. Vérifie que FFmpeg inclut le décodeur du codec source et qu’il reste assez d’espace temporaire.\n\n%1")
+        QStringLiteral("Qt Multimedia n’a pas pu lire cette vidéo et FFmpeg n’a pas réussi à créer l’aperçu. Vérifiez que FFmpeg inclut le décodeur du codec source et qu’il reste assez d’espace temporaire.\n\n%1")
             .arg(decode_log_tail_.right(2500)));
 }
 
@@ -3049,11 +3049,11 @@ void MainWindow::addLine() {
 }
 
 void MainWindow::addLineAt(int track, qint64 position_ms) {
-    if (!document_) { QMessageBox::information(this, "Aucun document", "Crée ou ouvre d’abord un document DetX."); return; }
+    if (!document_) { QMessageBox::information(this, "Aucun document", "Créez ou ouvrez d’abord un document DetX."); return; }
     track = std::clamp(track, 0, 3);
     selected_timeline_track_ = track;
     if (document_->roles().empty()) {
-        QMessageBox::information(this, QStringLiteral("Aucun rôle"), QStringLiteral("Ajoute d’abord un rôle pour attribuer cette réplique."));
+        QMessageBox::information(this, QStringLiteral("Aucun rôle"), QStringLiteral("Ajoutez d’abord un rôle pour attribuer cette réplique."));
         manageRoles();
         if (!document_ || document_->roles().empty()) return;
     }
@@ -3153,13 +3153,13 @@ void MainWindow::splitSelectedLine() {
     if (!document_) return;
     const int row = lines_table_->currentRow();
     if (row < 0 || row >= static_cast<int>(document_->lines().size())) {
-        status_label_->setText("Sélectionne une réplique avant de la scinder.");
+        status_label_->setText("Sélectionnez une réplique avant de la scinder.");
         return;
     }
     QDialog dialog(this);
     dialog.setWindowTitle(QStringLiteral("Scinder la réplique"));
     auto* layout = new QVBoxLayout(&dialog);
-    layout->addWidget(new QLabel(QStringLiteral("Saisis le timecode du point de coupe (HH:MM:SS:FF)."), &dialog));
+    layout->addWidget(new QLabel(QStringLiteral("Saisissez le timecode du point de coupe (HH:MM:SS:FF)."), &dialog));
     auto* cut_timecode = new QLineEdit(qstr(currentTimecode().format()), &dialog);
     layout->addWidget(cut_timecode);
     auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
@@ -3237,13 +3237,13 @@ void MainWindow::toggleRhythmFullscreen() {
 void MainWindow::exportVideoWithRhythm() {
     if (export_active_) return;
     if (!document_ || video_path_.isEmpty() || player_->duration() <= 0) {
-        QMessageBox::information(this, "Export vidéo", "Ouvre un document DetX et sa vidéo source avant l’export.");
+        QMessageBox::information(this, "Export vidéo", "Ouvrez un document DetX et sa vidéo source avant l’export.");
         return;
     }
     const QString ffmpeg = findBundledOrSystemTool(QStringLiteral("ffmpeg"));
     if (ffmpeg.isEmpty()) {
         QMessageBox::warning(this, "FFmpeg introuvable",
-            "Installe une version complète de FFmpeg et ajoute son dossier bin au PATH. "
+            "Installez une version complète de FFmpeg et ajoutez son dossier bin au PATH. "
             "L’export utilise FFmpeg pour détecter les encodeurs et créer la vidéo.");
         return;
     }
@@ -3323,7 +3323,7 @@ void MainWindow::exportVideoWithRhythm() {
         output += QLatin1Char('.') + extension;
     }
     if (extension != "mp4" && extension != "mov" && extension != "avi") {
-        QMessageBox::warning(this, "Format non pris en charge", "Choisis un nom de fichier en .mp4, .mov ou .avi.");
+        QMessageBox::warning(this, "Format non pris en charge", "Choisissez un nom de fichier en .mp4, .mov ou .avi.");
         return;
     }
     if (QFileInfo(output).absoluteFilePath().compare(QFileInfo(video_path_).absoluteFilePath(), Qt::CaseInsensitive) == 0) {
@@ -3339,7 +3339,7 @@ void MainWindow::exportVideoWithRhythm() {
     const QStorageInfo output_storage(output_info.absolutePath());
     if (output_storage.isValid() && output_storage.isReady() && output_storage.isReadOnly()) {
         QMessageBox::warning(this, "Destination en lecture seule",
-            QStringLiteral("Le disque ou le dossier choisi est monté en lecture seule :\n%1\n\nChoisis un dossier où tu peux créer des fichiers.")
+            QStringLiteral("Le disque ou le dossier choisi est monté en lecture seule :\n%1\n\nChoisissez un dossier où vous pouvez créer des fichiers.")
                 .arg(output_info.absolutePath()));
         return;
     }
@@ -3347,7 +3347,7 @@ void MainWindow::exportVideoWithRhythm() {
     write_probe.setAutoRemove(true);
     if (!write_probe.open() || write_probe.write("Rythmo", 6) != 6 || !write_probe.flush()) {
         QMessageBox::warning(this, "Destination non accessible en écriture",
-            QStringLiteral("Rythmo ne peut pas créer de fichiers dans le dossier choisi :\n%1\n\nDétail système : %2\n\nSur macOS, essaie le dossier Films/Rythmo Exports dans ton dossier utilisateur, puis vérifie Réglages Système > Confidentialité et sécurité si le refus persiste.")
+            QStringLiteral("Rythmo ne peut pas créer de fichiers dans le dossier choisi :\n%1\n\nDétail système : %2\n\nSur macOS, essayez le dossier Films/Rythmo Exports dans votre dossier utilisateur, puis vérifiez Réglages Système > Confidentialité et sécurité si le refus persiste.")
                 .arg(output_info.absolutePath(), write_probe.errorString()));
         return;
     }
@@ -3413,7 +3413,7 @@ void MainWindow::exportVideoWithRhythm() {
     auto* export_effects = new QCheckBox(QStringLiteral("Reproduire les effets du mode plein écran"), &codec_dialog);
     export_effects->setChecked(true);
     export_effects->setToolTip(QStringLiteral(
-        "Ajoute le fond vidéo flouté, le vignettage et les ombres latérales. Désactive cette option pour accélérer l’export."));
+        "Ajoutez le fond vidéo flouté, le vignettage et les ombres latérales. Désactivez cette option pour accélérer l’export."));
     codec_form->addRow(QStringLiteral("Effets visuels :"), export_effects);
     codec_layout->addLayout(codec_form);
     auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &codec_dialog);
@@ -3516,7 +3516,7 @@ void MainWindow::exportVideoWithRhythm() {
         hardware_info->setText(canceled
             ? QStringLiteral("Vérification annulée. Change la résolution pour relancer la détection.")
             : codec_combo->count() == 0
-                ? QStringLiteral("Aucun encodeur utilisable à cette résolution dans ce format. Essaie une autre résolution ou un autre format de fichier.")
+                ? QStringLiteral("Aucun encodeur utilisable à cette résolution dans ce format. Essayez une autre résolution ou un autre format de fichier.")
                 : QStringLiteral("Seuls les encodeurs validés sur cet appareil à cette résolution et à 60 i/s sont proposés. Un encodeur matériel est sélectionné en priorité."));
     };
     connect(resolution_combo, qOverload<int>(&QComboBox::currentIndexChanged), &codec_dialog, refresh_encoders);
@@ -3805,7 +3805,7 @@ void MainWindow::finishVideoExport(int exit_code, QProcess::ExitStatus status) {
         status_label_->setText("Export vidéo annulé.");
     } else if (exit_code != 0 || status == QProcess::CrashExit) {
         QFile::remove(export_temp_path_);
-        QMessageBox::warning(this, "Export échoué", QStringLiteral("FFmpeg n’a pas terminé l’export. Vérifie l’encodeur, les pilotes et l’espace disque.\n\n%1")
+        QMessageBox::warning(this, "Export échoué", QStringLiteral("FFmpeg n’a pas terminé l’export. Vérifiez l’encodeur, les pilotes et l’espace disque.\n\n%1")
             .arg(export_log_tail_.right(3000)));
     }
     export_cancelled_ = false;
@@ -3907,7 +3907,7 @@ void MainWindow::updateMediaMetadata() {
                 document_->set_fps(nominal, true);
                 timecode_fps_ = nominal;
                 setDirty(true);
-                status_label_->setText(QString("FPS source détecté : %1 ; cadence DetX réglée sur %2 i/s. Enregistre pour conserver ce réglage.")
+                status_label_->setText(QString("FPS source détecté : %1 ; cadence DetX réglée sur %2 i/s. Enregistrez pour conserver ce réglage.")
                                        .arg(detected, 0, 'f', 3).arg(nominal));
             } catch (const std::exception& error) {
                 status_label_->setText("FPS vidéo détecté, mais impossible de l’appliquer : " + QString::fromUtf8(error.what()));
