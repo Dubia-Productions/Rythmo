@@ -142,8 +142,17 @@ jobs:
           New-Item -ItemType Directory -Force -Path $ffmpegTemp | Out-Null
           $archivePath = Join-Path $ffmpegTemp $archiveName
           $checksumsPath = Join-Path $ffmpegTemp 'checksums.sha256'
-          Invoke-WebRequest $archiveAsset.browser_download_url -OutFile $archivePath
-          Invoke-WebRequest $checksumsAsset.browser_download_url -OutFile $checksumsPath
+          function Invoke-DownloadWithRetry([string]$Url, [string]$OutFile) {
+            for ($attempt = 1; $attempt -le 8; $attempt++) {
+              try { Invoke-WebRequest $Url -OutFile $OutFile; return }
+              catch {
+                if ($attempt -eq 8) { throw }
+                Start-Sleep -Seconds ([Math]::Min(5 * $attempt, 20))
+              }
+            }
+          }
+          Invoke-DownloadWithRetry $archiveAsset.browser_download_url $archivePath
+          Invoke-DownloadWithRetry $checksumsAsset.browser_download_url $checksumsPath
           $checksumLine = Get-Content $checksumsPath | Where-Object { $_ -match [regex]::Escape($archiveName) } | Select-Object -First 1
           $expectedHash = ($checksumLine -split '\s+')[0].ToLowerInvariant()
           $actualHash = (Get-FileHash $archivePath -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -178,8 +187,8 @@ jobs:
           ffmpeg_temp="$(mktemp -d)"
           for tool in ffmpeg ffprobe; do
             url="https://ffmpeg.martin-riedl.de/download/macos/$source_arch/${build_id}_9.0.2/$tool.zip"
-            curl -fsSL "$url" -o "$ffmpeg_temp/$tool.zip"
-            curl -fsSL "$url.sha256" -o "$ffmpeg_temp/$tool.zip.sha256"
+            curl --fail --location --silent --show-error --retry 8 --retry-all-errors --retry-delay 5 "$url" -o "$ffmpeg_temp/$tool.zip"
+            curl --fail --location --silent --show-error --retry 8 --retry-all-errors --retry-delay 5 "$url.sha256" -o "$ffmpeg_temp/$tool.zip.sha256"
             expected="$(awk 'NR == 1 { print $1 }' "$ffmpeg_temp/$tool.zip.sha256")"
             actual="$(shasum -a 256 "$ffmpeg_temp/$tool.zip" | awk '{ print $1 }')"
             [ -n "$expected" ] && [ "$actual" = "$expected" ] || { echo "FFmpeg checksum failed: $tool" >&2; exit 1; }
@@ -232,8 +241,8 @@ jobs:
           archive_url="$(python3 -c 'import json,sys; n=sys.argv[1]; d=json.load(sys.stdin); print(next(a["browser_download_url"] for a in d["assets"] if a["name"]==n))' "$archive_name" <<< "$release_json")"
           checksum_url="$(python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(a["browser_download_url"] for a in d["assets"] if a["name"]=="checksums.sha256"))' <<< "$release_json")"
           ffmpeg_temp="$(mktemp -d)"
-          curl -fsSL "$archive_url" -o "$ffmpeg_temp/$archive_name"
-          curl -fsSL "$checksum_url" -o "$ffmpeg_temp/checksums.sha256"
+          curl --fail --location --silent --show-error --retry 8 --retry-all-errors --retry-delay 5 "$archive_url" -o "$ffmpeg_temp/$archive_name"
+          curl --fail --location --silent --show-error --retry 8 --retry-all-errors --retry-delay 5 "$checksum_url" -o "$ffmpeg_temp/checksums.sha256"
           expected="$(awk -v n="$archive_name" '$NF == n || $NF == "*" n { print $1; exit }' "$ffmpeg_temp/checksums.sha256")"
           actual="$(sha256sum "$ffmpeg_temp/$archive_name" | awk '{ print $1 }')"
           [ -n "$expected" ] && [ "$actual" = "$expected" ] || { echo "FFmpeg checksum failed." >&2; exit 1; }
