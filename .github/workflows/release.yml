@@ -247,23 +247,18 @@ jobs:
           install -m 755 "$ffmpeg_bin" "$app_dir/ffmpeg"
           install -m 755 "$ffprobe_bin" "$app_dir/ffprobe"
 
-          qt_core="$(ldd "$build/Rythmo" | awk '$1 == "libQt6Core.so.6" && $2 == "=>" { print $3; exit }')"
-          [ -n "$qt_core" ] || { echo "Qt Core runtime library was not found." >&2; exit 1; }
-          qt_lib_dir="$(dirname "$(readlink -f "$qt_core")")"
-          qt_prefix="$(dirname "$qt_lib_dir")"
-          qt_plugins="$qt_prefix/plugins"
-          if [ ! -d "$qt_plugins/platforms" ]; then qt_plugins="$qt_prefix/qt6/plugins"; fi
-          if [ ! -d "$qt_plugins/platforms" ]; then
-            qt_qxcb="$(find /usr -type f -path '*/plugins/platforms/libqxcb.so' -print -quit 2>/dev/null || true)"
-            [ -n "$qt_qxcb" ] || { echo "Qt platform plugins were not found for the linked SDK." >&2; exit 1; }
-            qt_plugins="$(dirname "$(dirname "$qt_qxcb")")"
-          fi
+          qt6_dir="$(sed -n 's/^Qt6_DIR:[^=]*=//p' "$build/CMakeCache.txt" | head -n 1)"
+          [ -n "$qt6_dir" ] || { echo "Qt6_DIR is missing from the CMake cache." >&2; exit 1; }
+          qt_lib_dir="$(dirname "$(dirname "$qt6_dir")")"
+          qt_plugins="$(dirname "$qt_lib_dir")/plugins"
+          if [ ! -d "$qt_plugins/platforms" ]; then qt_plugins="$qt_lib_dir/qt6/plugins"; fi
+          [ -f "$qt_plugins/platforms/libqxcb.so" ] || { echo "Qt xcb platform plugin missing from the Qt SDK selected by CMake: $qt_plugins" >&2; exit 1; }
           mkdir -p "$app_dir/plugins"
           for plugin_group in platforms multimedia imageformats networkinformation tls xcbglintegrations; do
             if [ -d "$qt_plugins/$plugin_group" ]; then cp -R "$qt_plugins/$plugin_group" "$app_dir/plugins/"; fi
           done
           [ -f "$app_dir/plugins/platforms/libqxcb.so" ] || { echo "The Qt xcb platform plugin was not bundled." >&2; exit 1; }
-          python3 packaging/linux/bundle-runtime.py "$app_dir"
+          LD_LIBRARY_PATH="$qt_lib_dir${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" python3 packaging/linux/bundle-runtime.py "$app_dir"
           "$app_dir/ffprobe" -version >/dev/null
           tar -C package -czf "Rythmo-linux-$arch_name-portable.tar.gz" "Rythmo-linux-$arch_name"
           tar -tzf "Rythmo-linux-$arch_name-portable.tar.gz" | grep -q "Rythmo-linux-$arch_name/.rythmo-portable"

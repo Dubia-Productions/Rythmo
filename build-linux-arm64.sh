@@ -19,7 +19,7 @@ install_deps() {
   if command -v apt-get >/dev/null 2>&1; then
     SUDO=""; [ "$(id -u)" -eq 0 ] || SUDO=sudo
     $SUDO apt-get update
-    $SUDO apt-get install -y build-essential cmake ninja-build pkg-config curl libexpat1-dev qt6-base-dev qt6-multimedia-dev ffmpeg
+    $SUDO apt-get install -y build-essential cmake ninja-build pkg-config curl libexpat1-dev libgl1-mesa-dev libegl1-mesa-dev libopengl-dev libxkbcommon-dev libxkbcommon-x11-dev libxcb-cursor-dev qt6-base-dev qt6-multimedia-dev ffmpeg
   elif command -v dnf >/dev/null 2>&1; then
     SUDO=""; [ "$(id -u)" -eq 0 ] || SUDO=sudo
     $SUDO dnf install -y gcc-c++ make cmake ninja-build pkgconf-pkg-config curl expat-devel qt6-qtbase-devel qt6-qtmultimedia-devel ffmpeg
