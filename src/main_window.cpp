@@ -657,7 +657,7 @@ void MainWindow::createUi() {
             hide();
             connect(package_reply, &QNetworkReply::finished, this,
                 [this, package_reply, package, package_path, partial_package_path, update_dir,
-                 asset_digest, running_app_path, tag, restore_main_window, progress, download_cancelled
+                 asset_digest, running_app_path, tag, available, restore_main_window, progress, download_cancelled
 #ifdef Q_OS_LINUX
                  , system_package
 #endif
