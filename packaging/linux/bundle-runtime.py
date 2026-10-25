@@ -60,7 +60,11 @@ while queue:
         destination = lib_dir / name
         if destination.exists():
             if destination.resolve() != resolved:
-                raise SystemExit(f"Conflicting bundled libraries use SONAME {name}")
+                print(
+                    f"Using first compatible SONAME {name}: {destination.resolve()} "
+                    f"(also required by {resolved})",
+                    file=sys.stderr,
+                )
         else:
             shutil.copy2(resolved, destination)
         queue.append(resolved)
