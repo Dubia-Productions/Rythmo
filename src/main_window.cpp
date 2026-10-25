@@ -757,6 +757,8 @@ void MainWindow::createUi() {
                         "      if [ -e \"$old_app\" ]; then /bin/rm -rf \"$old_app\"; fi\n"
                         "      /bin/mv \"$backup\" \"$old_app\" || true\n"
                         "      /usr/bin/open -a \"$old_app\" || true\n"
+                        "    elif [ -d \"$old_app\" ]; then\n"
+                        "      /usr/bin/open -a \"$old_app\" || true\n"
                         "    fi\n"
                         "    if [ -n \"$transaction_dir\" ]; then echo \"Recovery files retained at $transaction_dir\"; fi\n"
                         "  fi\n"
@@ -814,13 +816,17 @@ void MainWindow::createUi() {
                              shell_quote(package_path), shell_quote(bundle), shell_quote(update_dir),
                              shell_quote(available.toString()));
                     const QString admin_suffix = needs_admin ? QStringLiteral(" with administrator privileges") : QString{};
+                    const QString relaunch_old_app = QStringLiteral("/usr/bin/open -a %1").arg(shell_quote(bundle));
                     const QString apple_script = QStringLiteral(
                         "try\n"
                         "  do shell script %1%2\n"
                         "on error errorMessage number errorNumber\n"
+                        "  try\n"
+                        "    do shell script %3\n"
+                        "  end try\n"
                         "  display dialog \"Rythmo n’a pas pu appliquer la mise à jour (\" & errorNumber & \"): \" & errorMessage buttons {\"OK\"} with icon caution\n"
                         "end try")
-                        .arg(apple_script_quote(command), admin_suffix);
+                        .arg(apple_script_quote(command), admin_suffix, apple_script_quote(relaunch_old_app));
                     progress->setLabelText(needs_admin
                         ? QStringLiteral("macOS va demander l’autorisation nécessaire, puis installer Rythmo %1…").arg(tag)
                         : QStringLiteral("Installation et redémarrage de Rythmo %1…").arg(tag));
