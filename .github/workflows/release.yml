@@ -100,7 +100,7 @@ jobs:
       - name: Set build version
         shell: bash
         run: |
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then version="${GITHUB_REF_NAME#v}"; else version="0.4.0"; fi
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then version="${GITHUB_REF_NAME#v}"; else version="0.4.1"; fi
           echo "RYTHMO_VERSION=$version" >> "$GITHUB_ENV"
 
       - name: Build and test on Windows
@@ -294,10 +294,15 @@ jobs:
           grep -Fq "Rythmo-linux-$arch_name/Rythmo.bin" "$archive_listing"
           rm -rf "$ffmpeg_temp"
 
-      - uses: actions/upload-artifact@v4
+      - name: Verify and upload release files
+        uses: actions/upload-artifact@v4
         with:
           name: Rythmo-${{ matrix.platform }}-${{ matrix.arch }}
-          path: Rythmo-*
+          path: |
+            Rythmo-windows-${{ matrix.arch }}-setup.exe
+            Rythmo-windows-${{ matrix.arch }}-portable.zip
+            Rythmo-macos-${{ matrix.arch }}.zip
+            Rythmo-linux-${{ matrix.arch }}-portable.tar.gz
           if-no-files-found: error
           retention-days: 30
 
