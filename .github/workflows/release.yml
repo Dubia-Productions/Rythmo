@@ -207,6 +207,8 @@ jobs:
           set -euo pipefail
           arch_name='${{ matrix.arch }}'
           if [ "$arch_name" = arm64 ]; then build=build/release-linux-arm64; ffmpeg_target=linuxarm64; else build=build/release-linux-x64; ffmpeg_target=linux64; fi
+          # Qt's Linux multimedia backend links against these GStreamer runtime libraries.
+          sudo apt-get install -y --no-install-recommends libgstreamer-plugins-base1.0-0 libgstreamer-plugins-bad1.0-0
           app_dir="package/Rythmo-linux-$arch_name"
           mkdir -p "$app_dir"
           install -m 755 "$build/Rythmo" "$app_dir/Rythmo.bin"
