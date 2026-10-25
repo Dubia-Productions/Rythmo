@@ -175,6 +175,9 @@ jobs:
           choco install innosetup -y --no-progress
           & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$version" "/DPackageDir=$stage" "/DOutputFile=Rythmo-windows-$arch-setup" packaging/windows.iss
           if ($LASTEXITCODE -ne 0) { throw 'Inno Setup failed.' }
+          $setupInPackaging = Join-Path $PWD "packaging/Rythmo-windows-$arch-setup.exe"
+          if (-not (Test-Path -LiteralPath $setupInPackaging)) { throw "Inno Setup output not found: $setupInPackaging" }
+          Copy-Item -LiteralPath $setupInPackaging -Destination (Join-Path $PWD "Rythmo-windows-$arch-setup.exe") -Force
 
       - name: Prepare macOS packages
         if: runner.os == 'macOS'
