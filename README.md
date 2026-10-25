@@ -2,64 +2,63 @@
 
 **Le logiciel de création de bande rythmo et de séparation vocale par excellence.**
 
-Rythmo est un logiciel de postproduction disponible sur Windows, macOS et Linux. Les projets, vidéos et traitements audio restent sur l’appareil.
+Rythmo est un logiciel de postproduction local disponible sur Windows, macOS et Linux. Vos projets, médias et traitements restent sur votre appareil.
 
 ## Fonctionnalités
 
 - Créer, ouvrir et enregistrer des projets DetX.
-- Lier une vidéo, créer des rôles et synchroniser les répliques sur quatre pistes.
-- Lire la vidéo en fenêtre ou en plein écran et exporter la bande à 60 i/s, de 720p à 4K.
-- Choisir un encodeur disponible sur la machine et activer ou désactiver les effets visuels d’export.
-- Séparer localement une scène en deux fichiers : voix et musique/effets. Les trois profils utilisent des modèles RoFormer à 44,1 kHz ; le profil élevé utilise Mel-Band RoFormer Instrumental v1e+ by unwa.
+- Synchroniser les répliques, rôles et quatre pistes avec une vidéo.
+- Lire la vidéo dans l’éditeur ou en plein écran.
+- Exporter la bande rythmo en 720p à 4K, jusqu’à 60 images/s, avec les encodeurs disponibles sur l’appareil.
+- Activer ou désactiver les effets visuels à l’export.
+- Séparer une scène localement en deux fichiers : voix et musique/effets, avec trois profils RoFormer.
 - Reprendre un projet récent.
-- Recevoir une notification facultative quand une version plus récente est disponible. Rythmo télécharge le paquet correspondant à la plateforme, demande confirmation avant le redémarrage, installe la mise à jour puis relance l’application. Aucune vérification réseau n’est faite quand l’appareil est hors ligne.
+- Vérifier les mises à jour en ligne, uniquement si une connexion est détectée. La mise à jour reste facultative, le paquet est vérifié avant installation et l’application redémarre automatiquement.
 
-Le moteur local et le modèle RoFormer choisi sont préparés à la première utilisation. Les modèles installés peuvent être supprimés depuis l’application. FFmpeg sert au décodage et à l’export vidéo.
+Les modèles de séparation se téléchargent à la première utilisation du profil. FFmpeg est inclus dans les paquets de l’application.
 
 ## Démarrage rapide
 
-1. Ouvrir **Bande Rythmo**, puis créer un projet ou ouvrir un fichier DetX.
-2. Choisir la vidéo source et ajouter rôles et répliques sur la bande.
+1. Ouvrir **Bande Rythmo** et créer un projet ou ouvrir un fichier DetX.
+2. Choisir la vidéo source, puis ajouter rôles et répliques.
 3. Cliquer sur **Exporter** pour choisir la résolution, l’encodeur et les effets.
-4. Ouvrir **Séparation de voix**, sélectionner un profil, ajouter les médias et lancer le traitement.
+4. Ouvrir **Séparation de voix**, choisir un profil et ajouter des fichiers.
 
 ## Raccourcis et gestes
 
 | Action | Touche ou geste |
 | --- | --- |
-| Lecture / pause | `Espace` |
-| Plein écran / quitter | `F11` / `Échap` |
-| Ajouter une réplique à la position de lecture | `Entrée` sur la bande |
-| Modifier la réplique sélectionnée | `F2` ou double-clic |
-| Supprimer la sélection | `Suppr` |
-| Scinder la réplique sélectionnée | `Ctrl+K` (`⌘+K` sur macOS) |
-| Avancer ou reculer d’une image | `Alt+←` / `Alt+→` ou `Maj+←` / `Maj+→` |
-| Zoomer sur la bande | `+` / `-` ou molette |
-| Naviguer dans la bande | Défilement à deux doigts du trackpad |
-| Annuler / rétablir | `Ctrl+Z` / `Ctrl+Maj+Z` ou `⌘+Z` / `⌘+Maj+Z` |
-| Nouveau, ouvrir, enregistrer | Raccourcis affichés dans le menu **Fichier** |
+| Lecture / pause | Espace |
+| Plein écran / quitter | F11 / Échap |
+| Ajouter une réplique à la position de lecture | Entrée sur la bande |
+| Modifier la réplique sélectionnée | F2 ou double-clic |
+| Supprimer la sélection | Suppr |
+| Scinder une réplique | Ctrl+K (⌘+K sur macOS) |
+| Avancer ou reculer d’une image | Alt+flèches ou Maj+flèches |
+| Zoomer sur la bande | + / - ou molette |
+| Naviguer sur la bande | Défilement à deux doigts du trackpad |
+| Annuler / rétablir | Ctrl+Z / Ctrl+Maj+Z ou ⌘+Z / ⌘+Maj+Z |
 
-Un clic droit sur la bande ajoute une réplique à l’emplacement choisi. Sur une réplique, il ouvre les commandes de modification et de suppression. Dans le champ de texte d’une réplique, `Entrée` valide la saisie sans créer de saut de ligne. `Ctrl+K` scinde une réplique ; ce raccourci ne marque pas un changement de plan.
+Un clic droit sur la bande ajoute une réplique à l’emplacement choisi. Sur une réplique, il ouvre les commandes de modification et de suppression. Dans le champ de texte, Entrée valide la saisie. Ctrl+K scinde une réplique ; il ne marque pas un changement de plan.
+
+## Téléchargements et compatibilité
+
+Chaque release fournit :
+
+- **Windows x64 et ARM64** : installateur et archive portable.
+- **macOS Intel et Apple Silicon** : un seul ZIP contenant directement Rythmo.app.
+- **Linux x64 et ARM64** : archive portable .tar.gz.
+
+La version macOS utilise Qt 6.8.3, compilé avec une cible minimale **macOS 12 (Monterey)**. Les Mac Intel sont compilés nativement, mais macOS Sierra (10.12) et les versions 10.13 à 11 ne sont pas compatibles avec cette base Qt. Les prendre en charge exigerait un portage séparé vers une ancienne version de Qt et des dépendances IA compatibles.
 
 ## Compilation
 
-Les scripts détectent et installent les dépendances usuelles, compilent en mode Release et lancent les tests :
+Le workflow GitHub Actions compile les six cibles en parallèle sur les runners x64 et ARM64, met en cache Qt, les outils et les runtimes Python, et publie les paquets lorsqu’un tag vX.Y.Z est poussé. Les exécutions de branche plus anciennes sont annulées lorsqu’un nouveau commit arrive.
 
-- Windows x64 : `build-windows-x64.bat` ; Windows ARM64 : `build-windows-arm64.bat`.
-- macOS Intel : `build-macos-intel.sh` ; Apple Silicon : `build-macos-silicon.sh`.
-- Linux x64 : `build-linux-x64.sh` ; Linux ARM64 : `build-linux-arm64.sh`.
-- Détection automatique : `build.bat` sous Windows ou `sh build.sh` sous macOS/Linux.
+Compilation locale : CMake 3.25+, Qt 6.5+ (Widgets, Multimedia, MultimediaWidgets et Network), Expat et un compilateur C++17.
 
-Une compilation manuelle nécessite CMake 3.25+, Qt 6.5+ (Widgets, Multimedia, MultimediaWidgets et Network), Expat et un compilateur C++17.
-
-```sh
+~~~sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
 ctest --test-dir build --output-on-failure
-```
-
-Le workflow GitHub Actions construit les six cibles x64 et ARM lors de chaque commit sur la branche `Release`. Les releases versionnées publient un paquet d’installation et une archive portable pour chaque cible prise en charge.
-
----
-
-Certaines fonctionnalités, notamment le système de mise à jour, ont été peaufinées avec l’aide d’outils d’intelligence artificielle.
+~~~

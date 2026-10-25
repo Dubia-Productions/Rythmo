@@ -31,7 +31,6 @@
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QInputDialog>
-#include <QListWidget>
 #include <QKeyEvent>
 #include <QKeySequence>
 #include <QLabel>
@@ -77,7 +76,6 @@
 #include <QTextEdit>
 #include <QToolBar>
 #include <QTimer>
-#include <QVariantAnimation>
 #include <QThread>
 #include <QUrl>
 #include <QVersionNumber>
@@ -89,8 +87,6 @@
 #include <QTemporaryDir>
 #include <QTemporaryFile>
 #include <QImage>
-#include <QLinearGradient>
-#include <QRadialGradient>
 #include <QPainter>
 #include <QStandardItemModel>
 #include <QUuid>
@@ -206,52 +202,6 @@ QString detect_graphics_adapters() {
     return output.isEmpty() ? QStringLiteral("Modèle GPU non détecté automatiquement") : output;
 }
 
-
-class HomeIntroWord final : public QWidget {
-public:
-    explicit HomeIntroWord(QWidget* parent = nullptr) : QWidget(parent) {
-        setMinimumSize(240, 68);
-        setMaximumHeight(68);
-        setAttribute(Qt::WA_TransparentForMouseEvents);
-    }
-
-    void setProgress(qreal value) {
-        progress_ = std::clamp(value, qreal(0.0), qreal(1.0));
-        update();
-    }
-
-protected:
-    void paintEvent(QPaintEvent*) override {
-        QPainter painter(this);
-        painter.setRenderHint(QPainter::Antialiasing, true);
-        painter.setRenderHint(QPainter::TextAntialiasing, true);
-        QFont font(QStringLiteral("Montserrat"));
-        font.setPixelSize(38);
-        font.setWeight(QFont::Bold);
-        font.setLetterSpacing(QFont::AbsoluteSpacing, 2.0);
-        painter.setFont(font);
-        const QString word = QStringLiteral("RYTHMO");
-        const QFontMetricsF metrics(font);
-        const qreal start_x = 0.0;
-        const qreal baseline = (height() + metrics.ascent() - metrics.descent()) / 2.0;
-        const QPointF entries[] = {{-130, -36}, {115, 30}, {-95, 38}, {100, -33}, {-140, -16}, {135, 18}};
-        qreal x = start_x;
-        for (qsizetype index = 0; index < word.size(); ++index) {
-            const QString letter = word.mid(index, 1);
-            const qreal advance = metrics.horizontalAdvance(letter);
-            const qreal local = std::clamp((progress_ - index * 0.075) / 0.58, qreal(0.0), qreal(1.0));
-            const qreal eased = 1.0 - std::pow(1.0 - local, 3.0);
-            const QPointF offset = entries[index] * (1.0 - eased);
-            painter.setOpacity(local);
-            painter.setPen(QColor(QStringLiteral("#69CAF0")));
-            painter.drawText(QPointF(x + offset.x(), baseline + offset.y()), letter);
-            x += advance;
-        }
-    }
-
-private:
-    qreal progress_{};
-};
 
 class FullscreenVideoCanvas final : public QWidget {
 public:
@@ -558,13 +508,18 @@ void MainWindow::createUi() {
                 || QSysInfo::currentCpuArchitecture().contains(QStringLiteral("aarch64"), Qt::CaseInsensitive)
                 ? QStringLiteral("arm64") : QStringLiteral("x64");
 #ifdef Q_OS_LINUX
-            const bool system_package = running_app_path.startsWith(QStringLiteral("/usr/"))
-                || running_app_path.startsWith(QStringLiteral("/opt/"));
-            const QString expected_asset = system_package
-                ? QStringLiteral("Rythmo-%1-%2-setup.deb").arg(platform, architecture)
-                : QStringLiteral("Rythmo-%1-%2-portable.tar.gz").arg(platform, architecture);
+            if (!QFileInfo::exists(QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral(".rythmo-portable")))) {
+                QMessageBox::information(this, QStringLiteral("Mise à jour"),
+                    QStringLiteral("La mise à jour automatique est réservée à l’archive portable Rythmo. Installe cette mise à jour manuellement."));
+                return;
+            }
+#endif
+#ifdef Q_OS_LINUX
+            const QString expected_asset = QStringLiteral("Rythmo-linux-%1-portable.tar.gz").arg(architecture);
+#elif defined(Q_OS_MACOS)
+            const QString expected_asset = QStringLiteral("Rythmo-macos-%1.zip").arg(architecture);
 #else
-            const QString expected_asset = QStringLiteral("Rythmo-%1-%2-portable.zip").arg(platform, architecture);
+            const QString expected_asset = QStringLiteral("Rythmo-windows-%1-portable.zip").arg(architecture);
 #endif
             QString asset_url;
             QString asset_digest;
@@ -658,17 +613,14 @@ void MainWindow::createUi() {
             connect(package_reply, &QNetworkReply::finished, this,
                 [this, package_reply, package, package_path, partial_package_path, update_dir,
                  asset_digest, running_app_path, tag, available, restore_main_window, progress, download_cancelled
-#ifdef Q_OS_LINUX
-                 , system_package
-#endif
                 ] {
                     const QByteArray tail = package_reply->readAll();
                     const bool write_ok = package->write(tail) == tail.size() && package->flush();
                     const bool response_ok = package_reply->error() == QNetworkReply::NoError && write_ok;
                     const qint64 package_size = package->size();
                     package->close();
-                    bool digest_ok = true;
-                    if (asset_digest.startsWith(QStringLiteral("sha256:"))) {
+                    bool digest_ok = asset_digest.startsWith(QStringLiteral("sha256:"));
+                    if (digest_ok) {
                         QFile verify_file(partial_package_path);
                         if (!verify_file.open(QIODevice::ReadOnly)) digest_ok = false;
                         else {
@@ -714,8 +666,8 @@ void MainWindow::createUi() {
 #ifdef Q_OS_WIN
                     auto quote = [](QString value) { value.replace(QStringLiteral("'"), QStringLiteral("''")); return QStringLiteral("'") + value + QStringLiteral("'"); };
                     const QString executable = QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("Rythmo.exe"));
-                    const QString script = QStringLiteral("$ErrorActionPreference='Stop'\n$pidToWait=%1\nwhile (Get-Process -Id $pidToWait -ErrorAction SilentlyContinue) { Start-Sleep -Milliseconds 500 }\n$root=%2\n$tmp=Join-Path $root 'payload'\nNew-Item -ItemType Directory -Force -Path $tmp | Out-Null\nExpand-Archive -LiteralPath %3 -DestinationPath $tmp -Force\nCopy-Item -Path (Join-Path $tmp '*') -Destination %4 -Recurse -Force\nStart-Process -FilePath %5\nRemove-Item -LiteralPath $tmp -Recurse -Force\n")
-                        .arg(process_id).arg(quote(update_dir), quote(package_path), quote(QCoreApplication::applicationDirPath()), quote(executable));
+                    const QString script = QStringLiteral("$ErrorActionPreference='Stop'\n$pidToWait=%1\nwhile (Get-Process -Id $pidToWait -ErrorAction SilentlyContinue) { Start-Sleep -Milliseconds 500 }\n$root=%2\n$parent=Split-Path -Parent $root\n$transaction=Join-Path $parent ('.Rythmo-update-' + [guid]::NewGuid().ToString('N'))\n$payload=Join-Path $transaction 'payload'\n$backup=Join-Path $transaction 'previous'\nNew-Item -ItemType Directory -Force -Path $payload | Out-Null\ntry {\n  Expand-Archive -LiteralPath %3 -DestinationPath $payload -Force\n  if (-not (Test-Path -LiteralPath (Join-Path $payload 'Rythmo.exe'))) { throw 'Rythmo.exe is missing from the package.' }\n  Move-Item -LiteralPath $root -Destination $backup\n  New-Item -ItemType Directory -Path $root | Out-Null\n  Copy-Item -Path (Join-Path $payload '*') -Destination $root -Recurse -Force\n  Start-Process -FilePath %4\n  Start-Sleep -Seconds 2\n  if (-not (Get-Process -Name 'Rythmo' -ErrorAction SilentlyContinue)) { throw 'Updated Rythmo did not start.' }\n  Remove-Item -LiteralPath $backup -Recurse -Force\n} catch {\n  if (Test-Path -LiteralPath $backup) {\n    if (Test-Path -LiteralPath $root) { Remove-Item -LiteralPath $root -Recurse -Force }\n    Move-Item -LiteralPath $backup -Destination $root\n    Start-Process -FilePath %4 -ErrorAction SilentlyContinue\n  }\n  throw\n} finally { Remove-Item -LiteralPath $transaction -Recurse -Force -ErrorAction SilentlyContinue }\n")
+                        .arg(process_id).arg(quote(QCoreApplication::applicationDirPath()), quote(package_path), quote(executable));
                     if (!QFile::exists(executable)) {
                         restore_main_window();
                         QMessageBox::warning(this, QStringLiteral("Mise à jour impossible"), QStringLiteral("L’exécutable Rythmo est introuvable dans le dossier de l’application."));
@@ -781,9 +733,13 @@ void MainWindow::createUi() {
                         "/bin/mv \"$old_app\" \"$backup\"\n"
                         "/bin/mv \"$new_app\" \"$old_app\"\n"
                         "/usr/bin/open -a \"$old_app\"\n"
+                        "new_pid=\"\"\n"
                         "attempt=0\n"
-                        "while [ \"$attempt\" -lt 30 ] && ! /usr/bin/pgrep -x Rythmo >/dev/null 2>&1; do /bin/sleep 0.5; attempt=$((attempt + 1)); done\n"
-                        "/usr/bin/pgrep -x Rythmo >/dev/null 2>&1 || { echo \"Updated app did not launch\"; exit 1; }\n"
+                        "while [ \"$attempt\" -lt 30 ] && [ -z \"$new_pid\" ]; do\n"
+                        "  new_pid=$(/usr/bin/pgrep -f \"$old_app/Contents/MacOS/Rythmo\" | /usr/bin/head -n 1 || true)\n"
+                        "  [ -n \"$new_pid\" ] || { /bin/sleep 0.5; attempt=$((attempt + 1)); }\n"
+                        "done\n"
+                        "[ -n \"$new_pid\" ] && /usr/bin/kill -0 \"$new_pid\" 2>/dev/null || { echo \"Updated app did not launch\"; exit 1; }\n"
                         "/bin/rm -rf \"$backup\"\n"
                         "backup=\"\"\n"
                         "/bin/rm -rf \"$transaction_dir\"\n"
@@ -834,11 +790,9 @@ void MainWindow::createUi() {
                         && QProcess::startDetached(QStringLiteral("/usr/bin/osascript"), {QStringLiteral("-e"), apple_script});
 #else
                     auto shell_quote = [](QString value) { value.replace(QStringLiteral("'"), QStringLiteral("'\\''")); return QStringLiteral("'") + value + QStringLiteral("'"); };
-                    const QString script = system_package
-                        ? QStringLiteral("#!/bin/sh\nwhile kill -0 %1 2>/dev/null; do sleep 0.5; done\npkexec dpkg -i %2 && %3\n")
-                            .arg(process_id).arg(shell_quote(package_path), shell_quote(running_app_path))
-                        : QStringLiteral("#!/bin/sh\nwhile kill -0 %1 2>/dev/null; do sleep 0.5; done\nroot=%2\ntmp=\"$root/payload\"\nmkdir -p \"$tmp\"\ntar -xzf %3 -C \"$tmp\"\nnew_app=$(find \"$tmp\" -type f -name Rythmo -print -quit)\n[ -n \"$new_app\" ] || exit 1\ncp \"$new_app\" %4 && chmod 755 %4 && %4\n")
-                            .arg(process_id).arg(shell_quote(update_dir), shell_quote(package_path), shell_quote(running_app_path));
+                    const QString script = QStringLiteral("#!/bin/sh\nset -eu\npid=%1\nroot=%2\npackage=%3\nparent=$(dirname \"$root\")\nwhile kill -0 \"$pid\" 2>/dev/null; do sleep 0.5; done\ntransaction=$(mktemp -d \"$parent/.Rythmo-update.XXXXXX\")\ntmp=\"$transaction/extracted\"\nbackup=\"$transaction/previous\"\nmkdir -p \"$tmp\"\ntar -xzf \"$package\" -C \"$tmp\"\nnew_root=$(find \"$tmp\" -mindepth 1 -maxdepth 1 -type d -name 'Rythmo-linux-*' -print -quit)\n[ -n \"$new_root\" ] && [ -x \"$new_root/Rythmo\" ] || exit 1\nrollback() { code=$?; if [ \"$code\" -ne 0 ] && [ -d \"$backup\" ]; then rm -rf \"$root\"; mv \"$backup\" \"$root\"; \"$root/Rythmo\" & fi; exit \"$code\"; }\ntrap rollback EXIT\nmv \"$root\" \"$backup\"\nmv \"$new_root\" \"$root\"\n\"$root/Rythmo\" &\nnew_pid=$!\nsleep 2\nkill -0 \"$new_pid\" >/dev/null 2>&1\nrm -rf \"$backup\" \"$transaction\"\ntrap - EXIT\n")
+                        .arg(process_id).arg(shell_quote(QFileInfo(running_app_path).absolutePath()),
+                                             shell_quote(package_path), shell_quote(update_dir));
                     QFile script_file(script_path);
                     if (!script_file.open(QIODevice::WriteOnly | QIODevice::Truncate) || script_file.write(script.toUtf8()) != script.toUtf8().size()) {
                         restore_main_window();
@@ -1056,21 +1010,21 @@ void MainWindow::showHome() {
         page->setObjectName(QStringLiteral("homePage"));
         page->setStyleSheet(QStringLiteral(
             "QWidget#homePage { background:#0B1118; }"
-            "QLabel#homeEyebrow { background:transparent; color:#9BAEBD; font-size:9pt; font-weight:700; letter-spacing:1px; }"
-            "QLabel#homeTitle { background:transparent; color:#F1F6FB; font-size:27pt; font-weight:700; }"
-            "QLabel#homeSubtitle { background:transparent; color:#AEBCC9; font-size:11pt; }"
-            "QLabel#homeSection { background:transparent; color:#8FA4B5; font-size:9pt; font-weight:700; letter-spacing:1px; }"
-            "QPushButton#homeModule { text-align:left; padding:0; min-height:165px; border-radius:16px; background:#141E28; border:1px solid #2A3A49; }"
+            "QLabel#homeTitle { background:transparent; color:#F1F6FB; font-size:25pt; font-weight:700; }"
+            "QLabel#homeSubtitle { background:transparent; color:#AEBCC9; font-size:10.5pt; }"
+            "QLabel#homeSection { background:transparent; color:#AEBCC9; font-size:9pt; font-weight:600; }"
+            "QPushButton#homeModule { text-align:left; padding:0; min-height:145px; border-radius:12px; background:#141E28; border:1px solid #2A3A49; }"
             "QPushButton#homeModule:hover { background:#192735; border-color:#46B5E3; }"));
         auto* layout = new QVBoxLayout(page);
-        layout->setContentsMargins(42, 34, 42, 30);
-        layout->setSpacing(18);
+        layout->setContentsMargins(36, 28, 36, 28);
+        layout->setSpacing(14);
         auto* top = new QHBoxLayout;
-        auto* wordmark = new HomeIntroWord(page);
+        auto* wordmark = new QLabel(QStringLiteral("RYTHMO"), page);
+        wordmark->setStyleSheet(QStringLiteral("background:transparent;color:#69CAF0;font-size:22pt;font-weight:700;letter-spacing:2px;"));
         top->addWidget(wordmark, 0, Qt::AlignLeft | Qt::AlignVCenter);
         top->addStretch(1);
         layout->addLayout(top);
-        auto* title = new QLabel(QStringLiteral("Tout votre studio, au même endroit."), page);
+        auto* title = new QLabel(QStringLiteral("Vos outils de doublage"), page);
         title->setObjectName(QStringLiteral("homeTitle"));
         title->setWordWrap(true);
         auto* subtitle = new QLabel(QStringLiteral("Le logiciel de création de bande rythmo et de séparation vocale par excellence."), page);
@@ -1079,7 +1033,7 @@ void MainWindow::showHome() {
         layout->addWidget(title);
         layout->addWidget(subtitle);
         layout->addSpacing(16);
-        auto* section = new QLabel(QStringLiteral("CHOISIR UN ESPACE"), page);
+        auto* section = new QLabel(QStringLiteral("ESPACES DE TRAVAIL"), page);
         section->setObjectName(QStringLiteral("homeSection"));
         layout->addWidget(section);
         auto* cards = new QGridLayout;
@@ -1091,7 +1045,7 @@ void MainWindow::showHome() {
             auto* button = new QPushButton(page);
             button->setObjectName(QStringLiteral("homeModule"));
             button->setMinimumWidth(220);
-            button->setMinimumHeight(180);
+            button->setMinimumHeight(145);
             button->setStyleSheet(QStringLiteral("QPushButton#homeModule { border-top:3px solid %1; }").arg(accent));
             auto* card_layout = new QVBoxLayout(button);
             card_layout->setContentsMargins(20, 18, 20, 18);
@@ -1115,7 +1069,7 @@ void MainWindow::showHome() {
         addCard(0, QStringLiteral("BANDE RYTHMO"), QStringLiteral("Créez et synchronisez vos répliques à l’image."), QStringLiteral("Ouvrir l’espace  →"), QStringLiteral("Bande Rythmo"), QStringLiteral("#4AB7E5"));
         addCard(1, QStringLiteral("SÉPARATION DE VOIX"), QStringLiteral("Isolez les dialogues d’une scène en local."), QStringLiteral("Choisir un modèle  →"), QStringLiteral("Séparation vocale"), QStringLiteral("#71C8B8"));
         layout->addLayout(cards);
-        auto* recent_heading = new QLabel(QStringLiteral("REPRENDRE UN PROJET"), page);
+        auto* recent_heading = new QLabel(QStringLiteral("PROJETS RÉCENTS"), page);
         recent_heading->setStyleSheet(QStringLiteral("background:transparent;color:#8FA4B5;font-size:9pt;font-weight:700;letter-spacing:1px;"));
         layout->addSpacing(10);
         layout->addWidget(recent_heading);
@@ -1126,14 +1080,6 @@ void MainWindow::showHome() {
         recent_row->setSpacing(12);
         layout->addWidget(home_recent_panel_);
         layout->addStretch(1);
-        auto* intro_animation = new QVariantAnimation(wordmark);
-        intro_animation->setDuration(1050);
-        intro_animation->setStartValue(0.0);
-        intro_animation->setEndValue(1.0);
-        intro_animation->setEasingCurve(QEasingCurve::OutCubic);
-        connect(intro_animation, &QVariantAnimation::valueChanged, wordmark,
-                [wordmark](const QVariant& value) { wordmark->setProgress(value.toReal()); });
-        intro_animation->start(QAbstractAnimation::DeleteWhenStopped);
         home_widget_ = page;
         page_stack_->addWidget(home_widget_);
     }

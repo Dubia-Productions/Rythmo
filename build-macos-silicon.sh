@@ -23,14 +23,22 @@ if ! command -v brew >/dev/null 2>&1; then
   if [ -x /opt/homebrew/bin/brew ]; then eval "$(/opt/homebrew/bin/brew shellenv)"; fi
 fi
 command -v brew >/dev/null 2>&1 || { echo "Homebrew n'a pas pu être installé." >&2; exit 1; }
-brew install qt cmake expat ffmpeg
+brew install cmake expat ffmpeg
 sh "$ROOT/prepare-python-runtime.sh" macos arm64
 command -v ffmpeg >/dev/null 2>&1 || { echo "FFmpeg ne s'est pas installé correctement." >&2; exit 1; }
 command -v ffprobe >/dev/null 2>&1 || { echo "ffprobe (fourni avec FFmpeg) est introuvable après l'installation." >&2; exit 1; }
 echo "FFmpeg installé : $(command -v ffmpeg)"
-QT_PREFIX=$(brew --prefix qt)
+TOOLENV="$ROOT/build/tools/build-env"
+if [ ! -x "$TOOLENV/bin/aqt" ]; then
+  python3 -m venv "$TOOLENV"
+  "$TOOLENV/bin/python" -m pip install --upgrade pip aqtinstall
+fi
+"$TOOLENV/bin/aqt" install-qt mac desktop 6.8.3 clang_64 --outputdir "$ROOT/build/tools/Qt" --modules qtmultimedia
+QT_CONFIG=$(find "$ROOT/build/tools/Qt/6.8.3" -path '*/lib/cmake/Qt6/Qt6Config.cmake' -print -quit)
+[ -n "$QT_CONFIG" ] || { echo "Échec de l’installation du SDK Qt 6.8.3 macOS." >&2; exit 1; }
+QT_PREFIX=${QT_CONFIG%/lib/cmake/Qt6/Qt6Config.cmake}
 export CMAKE_PREFIX_PATH="$QT_PREFIX${CMAKE_PREFIX_PATH:+:$CMAKE_PREFIX_PATH}"
-cmake -S "$ROOT" -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON "-DRYTHMO_VERSION=${RYTHMO_VERSION:-0.3.0}" -DCMAKE_OSX_ARCHITECTURES=arm64 \
+cmake -S "$ROOT" -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON "-DRYTHMO_VERSION=${RYTHMO_VERSION:-0.4.0}" -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 \
   "-DRYTHMO_PYTHON_RUNTIME_ARCHIVE=$ROOT/build/tools/python-runtime/macos-arm64.tar.gz"
 cmake --build "$BUILD_DIR" --parallel
 ctest --test-dir "$BUILD_DIR" --output-on-failure
@@ -38,17 +46,10 @@ APP="$BUILD_DIR/Rythmo.app"
 [ -d "$APP" ] || { echo "Bundle macOS absent après compilation : $APP" >&2; exit 1; }
 DEPLOYQT="$QT_PREFIX/bin/macdeployqt"
 if [ -x "$DEPLOYQT" ]; then
-  # Homebrew Qt plugins can depend on dylibs from separate formulae. Expose
-  # those locations to macdeployqt so it can bundle and rewrite their paths.
-  set -- "$APP" -always-overwrite
-  for formula in brotli zstd md4c webp libpng jpeg-turbo libtiff freetype icu4c; do
-    if dependency_prefix=$(brew --prefix "$formula" 2>/dev/null) && [ -d "$dependency_prefix/lib" ]; then
-      set -- "$@" "-libpath=$dependency_prefix/lib"
-    fi
-  done
-  "$DEPLOYQT" "$@"
+  "$DEPLOYQT" "$APP" -always-overwrite
 else
-  echo "Attention : macdeployqt absent; le bundle peut nécessiter Qt installé pour démarrer." >&2
+  echo "ERREUR : macdeployqt est absent du SDK Qt 6.8.3." >&2
+  exit 1
 fi
 PLIST="$APP/Contents/Info.plist"
 EXECUTABLE="$APP/Contents/MacOS/Rythmo"

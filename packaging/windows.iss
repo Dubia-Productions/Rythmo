@@ -1,5 +1,5 @@
 #ifndef AppVersion
-  #define AppVersion "0.3.1"
+  #define AppVersion "0.4.0"
 #endif
 #ifndef PackageDir
   #define PackageDir "package/Rythmo-windows-x64"
@@ -18,7 +18,7 @@ PrivilegesRequired=lowest
 DisableProgramGroupPage=yes
 OutputDir=.
 OutputBaseFilename={#OutputFile}
-Compression=lzma2/ultra64
+Compression=lzma2/fast
 SolidCompression=yes
 WizardStyle=modern
 CloseApplications=yes
