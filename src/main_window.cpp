@@ -510,7 +510,7 @@ void MainWindow::createUi() {
 #ifdef Q_OS_LINUX
             if (!QFileInfo::exists(QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral(".rythmo-portable")))) {
                 QMessageBox::information(this, QStringLiteral("Mise à jour"),
-                    QStringLiteral("La mise à jour automatique est réservée à l’archive portable Rythmo. Installe cette mise à jour manuellement."));
+                    QStringLiteral("La mise à jour automatique est réservée à l’archive portable Rythmo. Installez cette mise à jour manuellement."));
                 return;
             }
 #endif
@@ -2583,7 +2583,7 @@ void MainWindow::openVoiceSeparation() {
 #else
             QFile bundled_runtime(QStringLiteral(":/runtime/python-runtime.tar.gz"));
             if (!bundled_runtime.open(QIODevice::ReadOnly)) {
-                fail_job(QStringLiteral("Le runtime Python natif n’est pas inclus dans cette version de Rythmo. Réinstalle l’application depuis un build complet."));
+                fail_job(QStringLiteral("Le runtime Python natif n’est pas inclus dans cette version de Rythmo. Réinstallez l’application depuis un build complet."));
                 return;
             }
             QDir().mkpath(python_dir);
@@ -2826,7 +2826,7 @@ void MainWindow::startFfmpegDecodeFallback(const QString& qt_error) {
     decode_fallback_attempted_ = true;
     const QString ffmpeg = ffmpeg_path_.isEmpty() ? findBundledOrSystemTool(QStringLiteral("ffmpeg")) : ffmpeg_path_;
     if (ffmpeg.isEmpty() || !decode_temp_dir_.isValid()) {
-        status_label_->setText(QStringLiteral("FFmpeg est requis pour le décodage vidéo. Place FFmpeg à côté de l’application ou ajoute-le au PATH."));
+        status_label_->setText(QStringLiteral("FFmpeg est requis pour le décodage vidéo. Placez FFmpeg à côté de l’application ou ajoutez-le au PATH."));
         return;
     }
     if (decode_encoder_probe_process_ && decode_encoder_probe_process_->state() != QProcess::NotRunning) {
