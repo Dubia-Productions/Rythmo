@@ -587,115 +587,275 @@ void MainWindow::createUi() {
             if (QMessageBox::question(this, QStringLiteral("Mise à jour disponible"),
                     QStringLiteral("Télécharger Rythmo %1 (%2), puis redémarrer l’application pour installer la mise à jour ?")
                         .arg(tag, expected_asset), QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes) != QMessageBox::Yes) return;
+            if (!confirmDiscardChanges()) return;
 
-            const QString update_dir = QDir(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation))
-                                           .filePath(QStringLiteral("updates"));
-            if (!QDir().mkpath(update_dir)) {
+            QString app_data_dir = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
+            if (app_data_dir.isEmpty()) app_data_dir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+            const QString update_dir = QDir(app_data_dir).filePath(QStringLiteral("updates"));
+            if (app_data_dir.isEmpty() || !QDir().mkpath(update_dir)) {
                 QMessageBox::warning(this, QStringLiteral("Mise à jour impossible"), QStringLiteral("Le dossier temporaire de mise à jour ne peut pas être créé."));
                 return;
             }
             const QString package_path = QDir(update_dir).filePath(expected_asset);
-            auto* package = new QFile(package_path, this);
+            const QString partial_package_path = package_path + QStringLiteral(".download");
+            QFile::remove(partial_package_path);
+            auto* package = new QFile(partial_package_path, this);
             if (!package->open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+                delete package;
                 QMessageBox::warning(this, QStringLiteral("Mise à jour impossible"), QStringLiteral("Le paquet ne peut pas être enregistré sur cet appareil."));
                 return;
             }
+
+            const Qt::WindowStates previous_window_state = windowState();
+            auto* progress = new QProgressDialog(QStringLiteral("Téléchargement de Rythmo %1…").arg(tag),
+                QStringLiteral("Annuler"), 0, 1000);
+            progress->setWindowTitle(QStringLiteral("Mise à jour de Rythmo"));
+            progress->setWindowModality(Qt::ApplicationModal);
+            progress->setMinimumDuration(0);
+            progress->setAutoClose(false);
+            progress->setAutoReset(false);
+            progress->setWindowFlag(Qt::WindowStaysOnTopHint, true);
+            auto restore_main_window = [this, progress, previous_window_state] {
+                progress->hide();
+                progress->deleteLater();
+                setWindowState(previous_window_state);
+                show();
+                raise();
+                activateWindow();
+            };
             QNetworkRequest package_request(download_url);
             package_request.setHeader(QNetworkRequest::UserAgentHeader,
                 QStringLiteral("Rythmo/%1").arg(QCoreApplication::applicationVersion()));
             package_request.setTransferTimeout(300000);
             auto* package_reply = manager->get(package_request);
+            auto download_cancelled = std::make_shared<bool>(false);
+            connect(progress, &QProgressDialog::canceled, this, [package_reply, download_cancelled] {
+                *download_cancelled = true;
+                package_reply->abort();
+            });
+            connect(package_reply, &QNetworkReply::downloadProgress, progress,
+                [progress, tag](qint64 received, qint64 total) {
+                    if (total <= 0) {
+                        progress->setRange(0, 0);
+                        progress->setLabelText(QStringLiteral("Téléchargement de Rythmo %1… %2 Mo reçus")
+                            .arg(tag).arg(received / (1024.0 * 1024.0), 0, 'f', 1));
+                        return;
+                    }
+                    progress->setRange(0, 1000);
+                    progress->setValue(static_cast<int>(std::clamp<qint64>(received * 1000 / total, 0, 1000)));
+                    progress->setLabelText(QStringLiteral("Téléchargement de Rythmo %1… %2 / %3 Mo")
+                        .arg(tag)
+                        .arg(received / (1024.0 * 1024.0), 0, 'f', 1)
+                        .arg(total / (1024.0 * 1024.0), 0, 'f', 1));
+                });
             connect(package_reply, &QNetworkReply::readyRead, package_reply, [package_reply, package] {
                 if (!package->isOpen()) { package_reply->abort(); return; }
                 const QByteArray chunk = package_reply->readAll();
                 if (package->write(chunk) != chunk.size()) package_reply->abort();
             });
-            connect(package_reply, &QNetworkReply::finished, this, [this, package_reply, package, package_path, update_dir, asset_digest, running_app_path
+            progress->show();
+            hide();
+            connect(package_reply, &QNetworkReply::finished, this,
+                [this, package_reply, package, package_path, partial_package_path, update_dir,
+                 asset_digest, running_app_path, tag, restore_main_window, progress, download_cancelled
 #ifdef Q_OS_LINUX
-                , system_package
+                 , system_package
 #endif
-            ] {
-                const QByteArray tail = package_reply->readAll();
-                const bool write_ok = package->write(tail) == tail.size() && package->flush();
-                const bool response_ok = package_reply->error() == QNetworkReply::NoError && write_ok;
-                const qint64 package_size = package->size();
-                package->close();
-                bool digest_ok = true;
-                if (asset_digest.startsWith(QStringLiteral("sha256:"))) {
-                    QFile verify_file(package_path);
-                    if (!verify_file.open(QIODevice::ReadOnly)) digest_ok = false;
-                    else {
-                        QCryptographicHash hash(QCryptographicHash::Sha256);
-                        while (!verify_file.atEnd()) {
-                            const QByteArray chunk = verify_file.read(1024 * 1024);
-                            if (chunk.isEmpty() && verify_file.error() != QFile::NoError) { digest_ok = false; break; }
-                            hash.addData(chunk);
+                ] {
+                    const QByteArray tail = package_reply->readAll();
+                    const bool write_ok = package->write(tail) == tail.size() && package->flush();
+                    const bool response_ok = package_reply->error() == QNetworkReply::NoError && write_ok;
+                    const qint64 package_size = package->size();
+                    package->close();
+                    bool digest_ok = true;
+                    if (asset_digest.startsWith(QStringLiteral("sha256:"))) {
+                        QFile verify_file(partial_package_path);
+                        if (!verify_file.open(QIODevice::ReadOnly)) digest_ok = false;
+                        else {
+                            QCryptographicHash hash(QCryptographicHash::Sha256);
+                            while (!verify_file.atEnd()) {
+                                const QByteArray chunk = verify_file.read(1024 * 1024);
+                                if (chunk.isEmpty() && verify_file.error() != QFile::NoError) { digest_ok = false; break; }
+                                hash.addData(chunk);
+                            }
+                            if (digest_ok)
+                                digest_ok = QStringLiteral("sha256:") + QString::fromLatin1(hash.result().toHex()) == asset_digest;
                         }
-                        if (digest_ok)
-                            digest_ok = QStringLiteral("sha256:") + QString::fromLatin1(hash.result().toHex()) == asset_digest;
                     }
-                }
-                const bool valid = response_ok && package_size > 1024 && digest_ok;
-                package->deleteLater();
-                package_reply->deleteLater();
-                if (!valid) {
-                    QFile::remove(package_path);
-                    QMessageBox::warning(this, QStringLiteral("Téléchargement incomplet"), QStringLiteral("La mise à jour n’a pas été téléchargée complètement."));
-                    return;
-                }
-                const QString script_path = QDir(update_dir).filePath(QStringLiteral("apply-update")
+                    const bool valid = response_ok && package_size > 1024 && digest_ok;
+                    package->deleteLater();
+                    package_reply->deleteLater();
+                    if (*download_cancelled) {
+                        QFile::remove(partial_package_path);
+                        restore_main_window();
+                        return;
+                    }
+                    if (!valid || (QFile::exists(package_path) && !QFile::remove(package_path))
+                        || !QFile::rename(partial_package_path, package_path)) {
+                        QFile::remove(partial_package_path);
+                        restore_main_window();
+                        QMessageBox::warning(this, QStringLiteral("Téléchargement incomplet"),
+                            QStringLiteral("Rythmo %1 n’a pas été téléchargé ou vérifié correctement. Réessaie avec une connexion Internet stable.")
+                                .arg(tag));
+                        return;
+                    }
+
+                    progress->setRange(0, 0);
+                    progress->setCancelButton(nullptr);
+                    progress->setLabelText(QStringLiteral("Préparation de l’installation de Rythmo %1…").arg(tag));
+                    const QString script_path = QDir(update_dir).filePath(QStringLiteral("apply-update")
 #ifdef Q_OS_WIN
-                    + QStringLiteral(".ps1")
+                        + QStringLiteral(".ps1")
 #else
-                    + QStringLiteral(".sh")
+                        + QStringLiteral(".sh")
 #endif
-                );
-                const qint64 process_id = QCoreApplication::applicationPid();
+                    );
+                    const qint64 process_id = QCoreApplication::applicationPid();
 #ifdef Q_OS_WIN
-                auto quote = [](QString value) { value.replace(QStringLiteral("'"), QStringLiteral("''")); return QStringLiteral("'") + value + QStringLiteral("'"); };
-#else
-                auto shell_quote = [](QString value) { value.replace(QStringLiteral("'"), QStringLiteral("'\\''")); return QStringLiteral("'") + value + QStringLiteral("'"); };
-#endif
-#ifdef Q_OS_WIN
-                const QString executable = QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("Rythmo.exe"));
-                const QString script = QStringLiteral("$ErrorActionPreference='Stop'\n$pidToWait=%1\nwhile (Get-Process -Id $pidToWait -ErrorAction SilentlyContinue) { Start-Sleep -Milliseconds 500 }\n$root=%2\n$tmp=Join-Path $root 'payload'\nNew-Item -ItemType Directory -Force -Path $tmp | Out-Null\nExpand-Archive -LiteralPath %3 -DestinationPath $tmp -Force\nCopy-Item -Path (Join-Path $tmp '*') -Destination %4 -Recurse -Force\nStart-Process -FilePath %5\nRemove-Item -LiteralPath $tmp -Recurse -Force\n")
-                    .arg(process_id).arg(quote(update_dir), quote(package_path), quote(QCoreApplication::applicationDirPath()), quote(executable));
-                if (!QFile::exists(executable)) {
-                    QMessageBox::warning(this, QStringLiteral("Mise à jour impossible"), QStringLiteral("L’exécutable Rythmo est introuvable dans le dossier de l’application.")); return;
-                }
-                QFile script_file(script_path);
-                if (!script_file.open(QIODevice::WriteOnly | QIODevice::Truncate) || script_file.write(script.toUtf8()) < 0) {
-                    QMessageBox::warning(this, QStringLiteral("Mise à jour impossible"), QStringLiteral("Le programme d’installation différé n’a pas pu être préparé.")); return;
-                }
-                script_file.close();
-                if (!QProcess::startDetached(QStringLiteral("powershell.exe"), {QStringLiteral("-NoProfile"), QStringLiteral("-ExecutionPolicy"), QStringLiteral("Bypass"), QStringLiteral("-File"), script_path})) {
-                    QMessageBox::warning(this, QStringLiteral("Mise à jour impossible"), QStringLiteral("Le programme d’installation différé n’a pas pu démarrer.")); return;
-                }
+                    auto quote = [](QString value) { value.replace(QStringLiteral("'"), QStringLiteral("''")); return QStringLiteral("'") + value + QStringLiteral("'"); };
+                    const QString executable = QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("Rythmo.exe"));
+                    const QString script = QStringLiteral("$ErrorActionPreference='Stop'\n$pidToWait=%1\nwhile (Get-Process -Id $pidToWait -ErrorAction SilentlyContinue) { Start-Sleep -Milliseconds 500 }\n$root=%2\n$tmp=Join-Path $root 'payload'\nNew-Item -ItemType Directory -Force -Path $tmp | Out-Null\nExpand-Archive -LiteralPath %3 -DestinationPath $tmp -Force\nCopy-Item -Path (Join-Path $tmp '*') -Destination %4 -Recurse -Force\nStart-Process -FilePath %5\nRemove-Item -LiteralPath $tmp -Recurse -Force\n")
+                        .arg(process_id).arg(quote(update_dir), quote(package_path), quote(QCoreApplication::applicationDirPath()), quote(executable));
+                    if (!QFile::exists(executable)) {
+                        restore_main_window();
+                        QMessageBox::warning(this, QStringLiteral("Mise à jour impossible"), QStringLiteral("L’exécutable Rythmo est introuvable dans le dossier de l’application."));
+                        return;
+                    }
+                    QFile script_file(script_path);
+                    if (!script_file.open(QIODevice::WriteOnly | QIODevice::Truncate) || script_file.write(script.toUtf8()) != script.toUtf8().size()) {
+                        restore_main_window();
+                        QMessageBox::warning(this, QStringLiteral("Mise à jour impossible"), QStringLiteral("Le programme d’installation différé n’a pas pu être préparé."));
+                        return;
+                    }
+                    script_file.close();
+                    const bool updater_started = QProcess::startDetached(QStringLiteral("powershell.exe"),
+                        {QStringLiteral("-NoProfile"), QStringLiteral("-ExecutionPolicy"), QStringLiteral("Bypass"), QStringLiteral("-File"), script_path});
 #elif defined(Q_OS_MACOS)
-                QString bundle = QDir(QCoreApplication::applicationDirPath()).absoluteFilePath(QStringLiteral("../.."));
-                bundle = QDir::cleanPath(bundle);
-                const QString script = QStringLiteral("#!/bin/sh\nwhile kill -0 %1 2>/dev/null; do sleep 0.5; done\nroot=%2\ntmp=\"$root/payload\"\nmkdir -p \"$tmp\"\n/usr/bin/ditto -x -k %3 \"$tmp\"\nnew_app=$(find \"$tmp\" -maxdepth 3 -name 'Rythmo.app' -type d -print -quit)\n[ -n \"$new_app\" ] || exit 1\nold_app=%4\nbackup=\"$old_app.update-backup\"\nrm -rf \"$backup\"\nmv \"$old_app\" \"$backup\"\nif /usr/bin/ditto \"$new_app\" \"$old_app\"; then rm -rf \"$backup\"; open \"$old_app\"; else mv \"$backup\" \"$old_app\"; exit 1; fi\n")
-                    .arg(process_id).arg(shell_quote(update_dir), shell_quote(package_path), shell_quote(bundle));
-                QFile script_file(script_path);
-                if (!script_file.open(QIODevice::WriteOnly | QIODevice::Truncate) || script_file.write(script.toUtf8()) < 0) { QMessageBox::warning(this, QStringLiteral("Mise à jour impossible"), QStringLiteral("Le programme d’installation différé n’a pas pu être préparé.")); return; }
-                script_file.close();
-                if (!QProcess::startDetached(QStringLiteral("/bin/sh"), {script_path})) { QMessageBox::warning(this, QStringLiteral("Mise à jour impossible"), QStringLiteral("Le programme d’installation différé n’a pas pu démarrer.")); return; }
+                    QString bundle = QDir(QCoreApplication::applicationDirPath()).absoluteFilePath(QStringLiteral("../.."));
+                    bundle = QDir::cleanPath(bundle);
+                    const QFileInfo bundle_info(bundle);
+                    if (!bundle_info.isDir() || bundle_info.canonicalFilePath().isEmpty()) {
+                        restore_main_window();
+                        QMessageBox::warning(this, QStringLiteral("Mise à jour impossible"),
+                            QStringLiteral("Le paquet Rythmo.app courant est introuvable. Déplace Rythmo dans Applications puis réessaie."));
+                        return;
+                    }
+                    bundle = bundle_info.canonicalFilePath();
+                    const QString script = QStringLiteral(
+                        "#!/bin/sh\n"
+                        "set -eu\n"
+                        "pid=\"$1\"; package=\"$2\"; old_app=\"$3\"; update_dir=\"$4\"; expected_version=\"$5\"\n"
+                        "log=\"$update_dir/apply-update.log\"\n"
+                        "/bin/mkdir -p \"$update_dir\"\n"
+                        "exec >>\"$log\" 2>&1\n"
+                        "backup=\"\"; transaction_dir=\"\"\n"
+                        "on_exit() {\n"
+                        "  result=$?\n"
+                        "  if [ \"$result\" -ne 0 ]; then\n"
+                        "    echo \"Update failed with status $result at $(/bin/date)\"\n"
+                        "    if [ -n \"$backup\" ] && [ -d \"$backup\" ]; then\n"
+                        "      if [ -e \"$old_app\" ]; then /bin/rm -rf \"$old_app\"; fi\n"
+                        "      /bin/mv \"$backup\" \"$old_app\" || true\n"
+                        "      /usr/bin/open -a \"$old_app\" || true\n"
+                        "    fi\n"
+                        "    if [ -n \"$transaction_dir\" ]; then echo \"Recovery files retained at $transaction_dir\"; fi\n"
+                        "  fi\n"
+                        "  exit \"$result\"\n"
+                        "}\n"
+                        "trap on_exit EXIT\n"
+                        "while /bin/kill -0 \"$pid\" 2>/dev/null; do /bin/sleep 0.5; done\n"
+                        "parent=$(/usr/bin/dirname \"$old_app\")\n"
+                        "transaction_dir=$(/usr/bin/mktemp -d \"$parent/.Rythmo-update.XXXXXX\")\n"
+                        "extract_dir=\"$transaction_dir/extracted\"\n"
+                        "/bin/mkdir -p \"$extract_dir\"\n"
+                        "/usr/bin/ditto -x -k \"$package\" \"$extract_dir\"\n"
+                        "new_app=$(/usr/bin/find \"$extract_dir\" -type d -name Rythmo.app -print -quit)\n"
+                        "[ -n \"$new_app\" ] && [ -x \"$new_app/Contents/MacOS/Rythmo\" ] || { echo \"Rythmo.app is missing from the update archive\"; exit 1; }\n"
+                        "/usr/bin/xattr -dr com.apple.quarantine \"$new_app\" 2>/dev/null || true\n"
+                        "/usr/bin/codesign --verify --deep --strict \"$new_app\"\n"
+                        "version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \"$new_app/Contents/Info.plist\")\n"
+                        "[ \"$version\" = \"$expected_version\" ] || { echo \"Expected Rythmo $expected_version but archive contains $version\"; exit 1; }\n"
+                        "backup=\"$transaction_dir/previous.app\"\n"
+                        "/bin/mv \"$old_app\" \"$backup\"\n"
+                        "/bin/mv \"$new_app\" \"$old_app\"\n"
+                        "/usr/bin/open -a \"$old_app\"\n"
+                        "attempt=0\n"
+                        "while [ \"$attempt\" -lt 30 ] && ! /usr/bin/pgrep -x Rythmo >/dev/null 2>&1; do /bin/sleep 0.5; attempt=$((attempt + 1)); done\n"
+                        "/usr/bin/pgrep -x Rythmo >/dev/null 2>&1 || { echo \"Updated app did not launch\"; exit 1; }\n"
+                        "/bin/rm -rf \"$backup\"\n"
+                        "backup=\"\"\n"
+                        "/bin/rm -rf \"$transaction_dir\"\n"
+                        "transaction_dir=\"\"\n"
+                        "trap - EXIT\n"
+                    );
+                    QFile script_file(script_path);
+                    if (!script_file.open(QIODevice::WriteOnly | QIODevice::Truncate) || script_file.write(script.toUtf8()) != script.toUtf8().size()) {
+                        restore_main_window();
+                        QMessageBox::warning(this, QStringLiteral("Mise à jour impossible"), QStringLiteral("Le programme d’installation différé n’a pas pu être préparé."));
+                        return;
+                    }
+                    script_file.close();
+                    QTemporaryFile install_probe(QDir(bundle_info.absolutePath()).filePath(QStringLiteral(".rythmo-update-check-XXXXXX")));
+                    install_probe.setAutoRemove(true);
+                    const bool target_writable = install_probe.open();
+                    if (target_writable) install_probe.close();
+                    const bool needs_admin = !target_writable;
+                    auto shell_quote = [](QString value) {
+                        value.replace(QStringLiteral("'"), QStringLiteral("'\\''"));
+                        return QStringLiteral("'") + value + QStringLiteral("'");
+                    };
+                    auto apple_script_quote = [](QString value) {
+                        value.replace(QStringLiteral("\\"), QStringLiteral("\\\\"));
+                        value.replace(QStringLiteral("\""), QStringLiteral("\\\""));
+                        return QStringLiteral("\"") + value + QStringLiteral("\"");
+                    };
+                    const QString command = QStringLiteral("/bin/sh %1 %2 %3 %4 %5 %6")
+                        .arg(shell_quote(script_path), shell_quote(QString::number(process_id)),
+                             shell_quote(package_path), shell_quote(bundle), shell_quote(update_dir),
+                             shell_quote(available.toString()));
+                    const QString admin_suffix = needs_admin ? QStringLiteral(" with administrator privileges") : QString{};
+                    const QString apple_script = QStringLiteral(
+                        "try\n"
+                        "  do shell script %1%2\n"
+                        "on error errorMessage number errorNumber\n"
+                        "  display dialog \"Rythmo n’a pas pu appliquer la mise à jour (\" & errorNumber & \"): \" & errorMessage buttons {\"OK\"} with icon caution\n"
+                        "end try")
+                        .arg(apple_script_quote(command), admin_suffix);
+                    progress->setLabelText(needs_admin
+                        ? QStringLiteral("macOS va demander l’autorisation nécessaire, puis installer Rythmo %1…").arg(tag)
+                        : QStringLiteral("Installation et redémarrage de Rythmo %1…").arg(tag));
+                    const bool updater_started = QFileInfo::exists(QStringLiteral("/usr/bin/osascript"))
+                        && QProcess::startDetached(QStringLiteral("/usr/bin/osascript"), {QStringLiteral("-e"), apple_script});
 #else
-                const QString script = system_package
-                    ? QStringLiteral("#!/bin/sh\nwhile kill -0 %1 2>/dev/null; do sleep 0.5; done\npkexec dpkg -i %2 && %3\n")
-                        .arg(process_id).arg(shell_quote(package_path), shell_quote(running_app_path))
-                    : QStringLiteral("#!/bin/sh\nwhile kill -0 %1 2>/dev/null; do sleep 0.5; done\nroot=%2\ntmp=\"$root/payload\"\nmkdir -p \"$tmp\"\ntar -xzf %3 -C \"$tmp\"\nnew_app=$(find \"$tmp\" -type f -name Rythmo -print -quit)\n[ -n \"$new_app\" ] || exit 1\ncp \"$new_app\" %4 && chmod 755 %4 && %4\n")
-                        .arg(process_id).arg(shell_quote(update_dir), shell_quote(package_path), shell_quote(running_app_path));
-                QFile script_file(script_path);
-                if (!script_file.open(QIODevice::WriteOnly | QIODevice::Truncate) || script_file.write(script.toUtf8()) < 0) { QMessageBox::warning(this, QStringLiteral("Mise à jour impossible"), QStringLiteral("Le programme d’installation différé n’a pas pu être préparé.")); return; }
-                script_file.close();
-                if (!QProcess::startDetached(QStringLiteral("/bin/sh"), {script_path})) { QMessageBox::warning(this, QStringLiteral("Mise à jour impossible"), QStringLiteral("Le programme d’installation différé n’a pas pu démarrer.")); return; }
+                    auto shell_quote = [](QString value) { value.replace(QStringLiteral("'"), QStringLiteral("'\\''")); return QStringLiteral("'") + value + QStringLiteral("'"); };
+                    const QString script = system_package
+                        ? QStringLiteral("#!/bin/sh\nwhile kill -0 %1 2>/dev/null; do sleep 0.5; done\npkexec dpkg -i %2 && %3\n")
+                            .arg(process_id).arg(shell_quote(package_path), shell_quote(running_app_path))
+                        : QStringLiteral("#!/bin/sh\nwhile kill -0 %1 2>/dev/null; do sleep 0.5; done\nroot=%2\ntmp=\"$root/payload\"\nmkdir -p \"$tmp\"\ntar -xzf %3 -C \"$tmp\"\nnew_app=$(find \"$tmp\" -type f -name Rythmo -print -quit)\n[ -n \"$new_app\" ] || exit 1\ncp \"$new_app\" %4 && chmod 755 %4 && %4\n")
+                            .arg(process_id).arg(shell_quote(update_dir), shell_quote(package_path), shell_quote(running_app_path));
+                    QFile script_file(script_path);
+                    if (!script_file.open(QIODevice::WriteOnly | QIODevice::Truncate) || script_file.write(script.toUtf8()) != script.toUtf8().size()) {
+                        restore_main_window();
+                        QMessageBox::warning(this, QStringLiteral("Mise à jour impossible"), QStringLiteral("Le programme d’installation différé n’a pas pu être préparé."));
+                        return;
+                    }
+                    script_file.close();
+                    const bool updater_started = QProcess::startDetached(QStringLiteral("/bin/sh"), {script_path});
 #endif
-                QMessageBox::information(this, QStringLiteral("Mise à jour prête"), QStringLiteral("Rythmo va se fermer, installer la mise à jour, puis redémarrer."));
-                QCoreApplication::quit();
-            });
-        });
-    });
+                    if (!updater_started) {
+                        restore_main_window();
+                        QMessageBox::warning(this, QStringLiteral("Mise à jour impossible"),
+                            QStringLiteral("Le programme d’installation ne peut pas démarrer. Le journal détaillé est conservé dans :\n%1")
+                                .arg(QDir(update_dir).filePath(QStringLiteral("apply-update.log"))));
+                        return;
+                    }
+                    progress->setLabelText(QStringLiteral("Rythmo %1 est prêt. Fermeture puis redémarrage…").arg(tag));
+                    QTimer::singleShot(1200, progress, [progress] {
+                        progress->close();
+                        QCoreApplication::quit();
+                    });
+                });
+            });    });
     auto* space_play = new QShortcut(QKeySequence(Qt::Key_Space), root);
     space_play->setContext(Qt::WidgetWithChildrenShortcut);
     connect(space_play, &QShortcut::activated, this, [this] {
