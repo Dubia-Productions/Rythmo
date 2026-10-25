@@ -272,8 +272,10 @@ jobs:
           LD_LIBRARY_PATH="$qt_lib_dir${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" python3 packaging/linux/bundle-runtime.py "$app_dir"
           "$app_dir/ffprobe" -version >/dev/null
           tar -C package -czf "Rythmo-linux-$arch_name-portable.tar.gz" "Rythmo-linux-$arch_name"
-          tar -tzf "Rythmo-linux-$arch_name-portable.tar.gz" | grep -q "Rythmo-linux-$arch_name/.rythmo-portable"
-          tar -tzf "Rythmo-linux-$arch_name-portable.tar.gz" | grep -q "Rythmo-linux-$arch_name/Rythmo.bin"
+          archive_listing="$RUNNER_TEMP/rythmo-linux-$arch_name-contents.txt"
+          tar -tzf "Rythmo-linux-$arch_name-portable.tar.gz" > "$archive_listing"
+          grep -Fq "Rythmo-linux-$arch_name/.rythmo-portable" "$archive_listing"
+          grep -Fq "Rythmo-linux-$arch_name/Rythmo.bin" "$archive_listing"
           rm -rf "$ffmpeg_temp"
 
       - uses: actions/upload-artifact@v4
