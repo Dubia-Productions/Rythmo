@@ -696,6 +696,8 @@ void MainWindow::createUi() {
                     bundle = bundle_info.canonicalFilePath();
                     const QString authorization_marker = script_path + QStringLiteral(".authorized");
                     const QString apple_script_path = script_path + QStringLiteral(".applescript");
+                    const QFileInfo application_parent_info(QFileInfo(bundle).absolutePath());
+                    const bool needs_admin = !application_parent_info.isWritable();
                     QFile::remove(authorization_marker);
                     const QString script = QStringLiteral(
                         "#!/bin/sh\n"
@@ -761,11 +763,13 @@ void MainWindow::createUi() {
                         "trap - EXIT\n"
                         "/bin/rm -f \"$authorized_marker\"\n"
                     )
-                        .arg(QString::number(process_id),
-                             shell_quote(package_path), shell_quote(bundle),
-                             shell_quote(update_dir), shell_quote(available.toString()),
-                             QString::number(static_cast<qulonglong>(QFileInfo(QDir::homePath()).ownerId())),
-                             shell_quote(authorization_marker));
+                        .arg(QString::number(process_id))
+                        .arg(shell_quote(package_path))
+                        .arg(shell_quote(bundle))
+                        .arg(shell_quote(update_dir))
+                        .arg(shell_quote(available.toString()))
+                        .arg(QString::number(static_cast<qulonglong>(QFileInfo(QDir::homePath()).ownerId())))
+                        .arg(shell_quote(authorization_marker));
                     QFile script_file(script_path);
                     if (!script_file.open(QIODevice::WriteOnly | QIODevice::Truncate)
                         || script_file.write(script.toUtf8()) != script.toUtf8().size()
@@ -786,7 +790,7 @@ void MainWindow::createUi() {
                         return QStringLiteral("\"") + value + QStringLiteral("\"");
                     };
                     const QString command = QStringLiteral("/usr/bin/nohup /bin/sh %1 %2 %3 %4 %5 %6 %7 </dev/null >/dev/null 2>&1 &")
-                        .arg(shell_quote(script_path), shell_quote(QString::number(process_id),
+                        .arg(shell_quote(script_path), shell_quote(QString::number(process_id)),
                              shell_quote(package_path), shell_quote(bundle), shell_quote(update_dir),
                              shell_quote(available.toString()),
                              shell_quote(QString::number(static_cast<qulonglong>(QFileInfo(QDir::homePath()).ownerId()))),
