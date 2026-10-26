@@ -663,6 +663,7 @@ void MainWindow::createUi() {
 #endif
                     );
                     const qint64 process_id = QCoreApplication::applicationPid();
+                    bool updater_started = false;
 #ifdef Q_OS_WIN
                     auto quote = [](QString value) { value.replace(QStringLiteral("'"), QStringLiteral("''")); return QStringLiteral("'") + value + QStringLiteral("'"); };
                     const QString executable = QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("Rythmo.exe"));
@@ -680,7 +681,7 @@ void MainWindow::createUi() {
                         return;
                     }
                     script_file.close();
-                    const bool updater_started = QProcess::startDetached(QStringLiteral("powershell.exe"),
+                    updater_started = QProcess::startDetached(QStringLiteral("powershell.exe"),
                         {QStringLiteral("-NoProfile"), QStringLiteral("-ExecutionPolicy"), QStringLiteral("Bypass"), QStringLiteral("-File"), script_path});
 #elif defined(Q_OS_MACOS)
                     QString bundle = QDir(QCoreApplication::applicationDirPath()).absoluteFilePath(QStringLiteral("../.."));
@@ -693,14 +694,24 @@ void MainWindow::createUi() {
                         return;
                     }
                     bundle = bundle_info.canonicalFilePath();
+                    const QString authorization_marker = script_path + QStringLiteral(".authorized");
+                    const QString apple_script_path = script_path + QStringLiteral(".applescript");
+                    QFile::remove(authorization_marker);
                     const QString script = QStringLiteral(
                         "#!/bin/sh\n"
                         "set -eu\n"
-                        "pid=\"$1\"; package=\"$2\"; old_app=\"$3\"; update_dir=\"$4\"; expected_version=\"$5\"\n"
+                        "pid=\"$1\"; package=\"$2\"; old_app=\"$3\"; update_dir=\"$4\"; expected_version=\"$5\"; login_uid=\"$6\"; authorized_marker=\"$7\"\n"
                         "log=\"$update_dir/apply-update.log\"\n"
                         "/bin/mkdir -p \"$update_dir\"\n"
                         "exec >>\"$log\" 2>&1\n"
                         "backup=\"\"; transaction_dir=\"\"\n"
+                        "launch_app() {\n"
+                        "  if [ \"$(/usr/bin/id -u)\" -eq 0 ]; then\n"
+                        "    /bin/launchctl asuser \"$login_uid\" /usr/bin/open -a \"$old_app\"\n"
+                        "  else\n"
+                        "    /usr/bin/open -a \"$old_app\"\n"
+                        "  fi\n"
+                        "}\n"
                         "on_exit() {\n"
                         "  result=$?\n"
                         "  if [ \"$result\" -ne 0 ]; then\n"
@@ -708,15 +719,16 @@ void MainWindow::createUi() {
                         "    if [ -n \"$backup\" ] && [ -d \"$backup\" ]; then\n"
                         "      if [ -e \"$old_app\" ]; then /bin/rm -rf \"$old_app\"; fi\n"
                         "      /bin/mv \"$backup\" \"$old_app\" || true\n"
-                        "      /usr/bin/open -a \"$old_app\" || true\n"
-                        "    elif [ -d \"$old_app\" ]; then\n"
-                        "      /usr/bin/open -a \"$old_app\" || true\n"
                         "    fi\n"
+                        "    if [ -d \"$old_app\" ]; then launch_app || true; fi\n"
                         "    if [ -n \"$transaction_dir\" ]; then echo \"Recovery files retained at $transaction_dir\"; fi\n"
                         "  fi\n"
+                        "  /bin/rm -f \"$authorized_marker\" || true\n"
                         "  exit \"$result\"\n"
                         "}\n"
                         "trap on_exit EXIT\n"
+                        ": > \"$authorized_marker\"\n"
+                        "case \"$login_uid\" in ''|*[!0-9]*) echo \"Invalid login user id\"; exit 1;; esac\n"
                         "while /bin/kill -0 \"$pid\" 2>/dev/null; do /bin/sleep 0.5; done\n"
                         "parent=$(/usr/bin/dirname \"$old_app\")\n"
                         "transaction_dir=$(/usr/bin/mktemp -d \"$parent/.Rythmo-update.XXXXXX\")\n"
@@ -732,32 +744,38 @@ void MainWindow::createUi() {
                         "backup=\"$transaction_dir/previous.app\"\n"
                         "/bin/mv \"$old_app\" \"$backup\"\n"
                         "/bin/mv \"$new_app\" \"$old_app\"\n"
-                        "/usr/bin/open -a \"$old_app\"\n"
+                        "launch_app\n"
                         "new_pid=\"\"\n"
                         "attempt=0\n"
-                        "while [ \"$attempt\" -lt 30 ] && [ -z \"$new_pid\" ]; do\n"
-                        "  new_pid=$(/usr/bin/pgrep -f \"$old_app/Contents/MacOS/Rythmo\" | /usr/bin/head -n 1 || true)\n"
-                        "  [ -n \"$new_pid\" ] || { /bin/sleep 0.5; attempt=$((attempt + 1)); }\n"
+                        "stable=0\n"
+                        "while [ \"$attempt\" -lt 40 ] && [ \"$stable\" -lt 3 ]; do\n"
+                        "  new_pid=$(/usr/bin/pgrep -x Rythmo | /usr/bin/head -n 1 || true)\n"
+                        "  if [ -n \"$new_pid\" ] && /bin/kill -0 \"$new_pid\" 2>/dev/null; then stable=$((stable + 1)); else stable=0; fi\n"
+                        "  [ \"$stable\" -ge 3 ] || { /bin/sleep 0.5; attempt=$((attempt + 1)); }\n"
                         "done\n"
-                        "[ -n \"$new_pid\" ] && /usr/bin/kill -0 \"$new_pid\" 2>/dev/null || { echo \"Updated app did not launch\"; exit 1; }\n"
+                        "[ \"$stable\" -ge 3 ] || { echo \"Updated app did not remain running\"; exit 1; }\n"
                         "/bin/rm -rf \"$backup\"\n"
                         "backup=\"\"\n"
                         "/bin/rm -rf \"$transaction_dir\"\n"
                         "transaction_dir=\"\"\n"
                         "trap - EXIT\n"
-                    );
+                        "/bin/rm -f \"$authorized_marker\"\n"
+                    )
+                        .arg(QString::number(process_id),
+                             shell_quote(package_path), shell_quote(bundle),
+                             shell_quote(update_dir), shell_quote(available.toString()),
+                             QString::number(static_cast<qulonglong>(QFileInfo(QDir::homePath()).ownerId())),
+                             shell_quote(authorization_marker));
                     QFile script_file(script_path);
-                    if (!script_file.open(QIODevice::WriteOnly | QIODevice::Truncate) || script_file.write(script.toUtf8()) != script.toUtf8().size()) {
+                    if (!script_file.open(QIODevice::WriteOnly | QIODevice::Truncate)
+                        || script_file.write(script.toUtf8()) != script.toUtf8().size()
+                        || !script_file.flush()) {
                         restore_main_window();
-                        QMessageBox::warning(this, QStringLiteral("Mise à jour impossible"), QStringLiteral("Le programme d’installation différé n’a pas pu être préparé."));
+                        QMessageBox::warning(this, QStringLiteral("Mise à jour impossible"),
+                            QStringLiteral("Le programme d’installation différé n’a pas pu être préparé."));
                         return;
                     }
                     script_file.close();
-                    QTemporaryFile install_probe(QDir(bundle_info.absolutePath()).filePath(QStringLiteral(".rythmo-update-check-XXXXXX")));
-                    install_probe.setAutoRemove(true);
-                    const bool target_writable = install_probe.open();
-                    if (target_writable) install_probe.close();
-                    const bool needs_admin = !target_writable;
                     auto shell_quote = [](QString value) {
                         value.replace(QStringLiteral("'"), QStringLiteral("'\\''"));
                         return QStringLiteral("'") + value + QStringLiteral("'");
@@ -767,27 +785,87 @@ void MainWindow::createUi() {
                         value.replace(QStringLiteral("\""), QStringLiteral("\\\""));
                         return QStringLiteral("\"") + value + QStringLiteral("\"");
                     };
-                    const QString command = QStringLiteral("/bin/sh %1 %2 %3 %4 %5 %6")
-                        .arg(shell_quote(script_path), shell_quote(QString::number(process_id)),
+                    const QString command = QStringLiteral("/usr/bin/nohup /bin/sh %1 %2 %3 %4 %5 %6 %7 </dev/null >/dev/null 2>&1 &")
+                        .arg(shell_quote(script_path), shell_quote(QString::number(process_id),
                              shell_quote(package_path), shell_quote(bundle), shell_quote(update_dir),
-                             shell_quote(available.toString()));
+                             shell_quote(available.toString()),
+                             shell_quote(QString::number(static_cast<qulonglong>(QFileInfo(QDir::homePath()).ownerId()))),
+                             shell_quote(authorization_marker));
                     const QString admin_suffix = needs_admin ? QStringLiteral(" with administrator privileges") : QString{};
-                    const QString relaunch_old_app = QStringLiteral("/usr/bin/open -a %1").arg(shell_quote(bundle));
                     const QString apple_script = QStringLiteral(
                         "try\n"
                         "  do shell script %1%2\n"
                         "on error errorMessage number errorNumber\n"
-                        "  try\n"
-                        "    do shell script %3\n"
-                        "  end try\n"
-                        "  display dialog \"Rythmo n’a pas pu appliquer la mise à jour (\" & errorNumber & \"): \" & errorMessage buttons {\"OK\"} with icon caution\n"
+                        "  error errorMessage number errorNumber\n"
                         "end try")
-                        .arg(apple_script_quote(command), admin_suffix, apple_script_quote(relaunch_old_app));
-                    progress->setLabelText(needs_admin
-                        ? QStringLiteral("macOS va demander l’autorisation nécessaire, puis installer Rythmo %1…").arg(tag)
-                        : QStringLiteral("Installation et redémarrage de Rythmo %1…").arg(tag));
-                    const bool updater_started = QFileInfo::exists(QStringLiteral("/usr/bin/osascript"))
-                        && QProcess::startDetached(QStringLiteral("/usr/bin/osascript"), {QStringLiteral("-e"), apple_script});
+                        .arg(apple_script_quote(command), admin_suffix);
+                    progress->setLabelText(QStringLiteral("En attente de l’autorisation macOS pour installer Rythmo %1…").arg(tag));
+                    QSaveFile apple_script_file(apple_script_path);
+                    if (!apple_script_file.open(QIODevice::WriteOnly)
+                        || apple_script_file.write(apple_script.toUtf8()) != apple_script.toUtf8().size()
+                        || !apple_script_file.commit()) {
+                        restore_main_window();
+                        QMessageBox::warning(this, QStringLiteral("Mise à jour impossible"),
+                            QStringLiteral("Le script d’autorisation macOS ne peut pas être préparé."));
+                        return;
+                    }
+                    auto* authorization_process = new QProcess(this);
+                    authorization_process->setProgram(QStringLiteral("/usr/bin/osascript"));
+                    authorization_process->setArguments({apple_script_path});
+                    authorization_process->setProcessChannelMode(QProcess::MergedChannels);
+                    authorization_process->start();
+                    updater_started = authorization_process->waitForStarted(3000);
+                    if (updater_started) {
+                        auto handled = std::make_shared<bool>(false);
+                        auto* authorization_watch = new QTimer(progress);
+                        authorization_watch->setInterval(250);
+                        connect(authorization_watch, &QTimer::timeout, this,
+                            [this, authorization_process, authorization_watch, authorization_marker,
+                             restore_main_window, progress, tag, handled] {
+                                if (*handled) return;
+                                if (QFileInfo::exists(authorization_marker)
+                                    && authorization_process->state() == QProcess::NotRunning) {
+                                    *handled = true;
+                                    authorization_watch->stop();
+                                    authorization_process->deleteLater();
+                                    QFile::remove(authorization_marker);
+                                    progress->setLabelText(QStringLiteral("Autorisation reçue. Installation et redémarrage de Rythmo %1…").arg(tag));
+                                    QTimer::singleShot(700, progress, [progress] {
+                                        progress->close();
+                                        QCoreApplication::quit();
+                                    });
+                                    return;
+                                }
+                                if (authorization_process->state() == QProcess::NotRunning
+                                    && authorization_process->exitCode() != 0
+                                    && !QFileInfo::exists(authorization_marker)) {
+                                    *handled = true;
+                                    authorization_watch->stop();
+                                    const QString detail = QString::fromLocal8Bit(authorization_process->readAll()).trimmed();
+                                    authorization_process->deleteLater();
+                                    restore_main_window();
+                                    QMessageBox::warning(this, QStringLiteral("Mise à jour annulée"),
+                                        detail.isEmpty()
+                                            ? QStringLiteral("L’autorisation macOS a été refusée ou annulée. Rythmo n’a pas été modifié.")
+                                            : QStringLiteral("L’autorisation macOS n’a pas abouti. Rythmo n’a pas été modifié.\n\n%1").arg(detail.right(1200)));
+                                }
+                            });
+                        authorization_watch->start();
+                        QTimer::singleShot(180000, progress, [this, authorization_process, authorization_watch,
+                                                              authorization_marker, restore_main_window, handled] {
+                            if (*handled || QFileInfo::exists(authorization_marker)) return;
+                            *handled = true;
+                            authorization_watch->stop();
+                            if (authorization_process->state() != QProcess::NotRunning)
+                                authorization_process->terminate();
+                            authorization_process->deleteLater();
+                            restore_main_window();
+                            QMessageBox::warning(this, QStringLiteral("Mise à jour expirée"),
+                                QStringLiteral("L’autorisation n’a pas été confirmée à temps. Rythmo n’a pas été modifié."));
+                        });
+                        return;
+                    }
+                    authorization_process->deleteLater();
 #else
                     auto shell_quote = [](QString value) { value.replace(QStringLiteral("'"), QStringLiteral("'\\''")); return QStringLiteral("'") + value + QStringLiteral("'"); };
                     const QString script = QStringLiteral("#!/bin/sh\nset -eu\npid=%1\nroot=%2\npackage=%3\nparent=$(dirname \"$root\")\nwhile kill -0 \"$pid\" 2>/dev/null; do sleep 0.5; done\ntransaction=$(mktemp -d \"$parent/.Rythmo-update.XXXXXX\")\ntmp=\"$transaction/extracted\"\nbackup=\"$transaction/previous\"\nmkdir -p \"$tmp\"\ntar -xzf \"$package\" -C \"$tmp\"\nnew_root=$(find \"$tmp\" -mindepth 1 -maxdepth 1 -type d -name 'Rythmo-linux-*' -print -quit)\n[ -n \"$new_root\" ] && [ -x \"$new_root/Rythmo\" ] || exit 1\nrollback() { code=$?; if [ \"$code\" -ne 0 ] && [ -d \"$backup\" ]; then rm -rf \"$root\"; mv \"$backup\" \"$root\"; \"$root/Rythmo\" & fi; exit \"$code\"; }\ntrap rollback EXIT\nmv \"$root\" \"$backup\"\nmv \"$new_root\" \"$root\"\n\"$root/Rythmo\" &\nnew_pid=$!\nsleep 2\nkill -0 \"$new_pid\" >/dev/null 2>&1\nrm -rf \"$backup\" \"$transaction\"\ntrap - EXIT\n")
