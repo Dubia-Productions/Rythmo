@@ -663,12 +663,14 @@ void MainWindow::createUi() {
 #endif
                     );
                     const qint64 process_id = QCoreApplication::applicationPid();
+                    const QString updater_log_path = QDir(update_dir).filePath(
+                        QStringLiteral("apply-update-%1.log").arg(tag));
                     bool updater_started = false;
 #ifdef Q_OS_WIN
                     auto quote = [](QString value) { value.replace(QStringLiteral("'"), QStringLiteral("''")); return QStringLiteral("'") + value + QStringLiteral("'"); };
                     const QString executable = QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("Rythmo.exe"));
                     const QString script = QStringLiteral("$ErrorActionPreference='Stop'\n$updateLog=%5\n$pidToWait=%1\nwhile (Get-Process -Id $pidToWait -ErrorAction SilentlyContinue) { Start-Sleep -Milliseconds 500 }\n$root=%2\n$parent=Split-Path -Parent $root\n$transaction=Join-Path $parent ('.Rythmo-update-' + [guid]::NewGuid().ToString('N'))\n$payload=Join-Path $transaction 'payload'\n$backup=Join-Path $transaction 'previous'\nNew-Item -ItemType Directory -Force -Path $payload | Out-Null\ntry {\n  Expand-Archive -LiteralPath %3 -DestinationPath $payload -Force\n  if (-not (Test-Path -LiteralPath (Join-Path $payload 'Rythmo.exe'))) { throw 'Rythmo.exe is missing from the package.' }\n  Move-Item -LiteralPath $root -Destination $backup\n  New-Item -ItemType Directory -Path $root | Out-Null\n  Copy-Item -Path (Join-Path $payload '*') -Destination $root -Recurse -Force\n  Start-Process -FilePath %4\n  Start-Sleep -Seconds 2\n  if (-not (Get-Process -Name 'Rythmo' -ErrorAction SilentlyContinue)) { throw 'Updated Rythmo did not start.' }\n  Remove-Item -LiteralPath $backup -Recurse -Force\n} catch {\n  ($_ | Out-String) | Add-Content -LiteralPath $updateLog -ErrorAction SilentlyContinue\n  if (Test-Path -LiteralPath $backup) {\n    if (Test-Path -LiteralPath $root) { Remove-Item -LiteralPath $root -Recurse -Force }\n    Move-Item -LiteralPath $backup -Destination $root\n  }\n  if (Test-Path -LiteralPath (Join-Path $root 'Rythmo.exe')) { Start-Process -FilePath %4 -ErrorAction SilentlyContinue }\n  throw\n} finally { Remove-Item -LiteralPath $transaction -Recurse -Force -ErrorAction SilentlyContinue }\n")
-                        .arg(process_id).arg(quote(QCoreApplication::applicationDirPath()), quote(package_path), quote(executable), quote(QDir(update_dir).filePath(QStringLiteral("apply-update.log"))));
+                        .arg(process_id).arg(quote(QCoreApplication::applicationDirPath()), quote(package_path), quote(executable), quote(updater_log_path));
                     if (!QFile::exists(executable)) {
                         restore_main_window();
                         QMessageBox::warning(this, QStringLiteral("Mise à jour impossible"), QStringLiteral("L’exécutable Rythmo est introuvable dans le dossier de l’application."));
@@ -711,14 +713,13 @@ void MainWindow::createUi() {
                     const QString script = QStringLiteral(
                         "#!/bin/sh\n"
                         "set -eu\n"
-                        "pid=\"$1\"; package=\"$2\"; old_app=\"$3\"; update_dir=\"$4\"; expected_version=\"$5\"; login_uid=\"$6\"; authorized_marker=\"$7\"\n"
-                        "log=\"$update_dir/apply-update.log\"\n"
+                        "pid=\"$1\"; package=\"$2\"; old_app=\"$3\"; update_dir=\"$4\"; expected_version=\"$5\"; login_uid=\"$6\"; authorized_marker=\"$7\"; log=\"$8\"\n"
                         "/bin/mkdir -p \"$update_dir\"\n"
                         "exec >>\"$log\" 2>&1\n"
                         "backup=\"\"; transaction_dir=\"\"\n"
                         "launch_app() {\n"
                         "  if [ \"$(/usr/bin/id -u)\" -eq 0 ]; then\n"
-                        "    /bin/launchctl asuser \"$login_uid\" /usr/bin/open -a \"$old_app\"\n"
+                        "    /bin/launchctl asuser \"$login_uid\" /usr/bin/sudo -u \"#$login_uid\" -H /usr/bin/open -a \"$old_app\"\n"
                         "  else\n"
                         "    /usr/bin/open -a \"$old_app\"\n"
                         "  fi\n"
@@ -782,12 +783,12 @@ void MainWindow::createUi() {
                         return;
                     }
                     script_file.close();
-                    const QString command = QStringLiteral("/usr/bin/nohup /bin/sh %1 %2 %3 %4 %5 %6 %7 %8 </dev/null >/dev/null 2>&1 &")
+                    const QString command = QStringLiteral("/usr/bin/nohup /bin/sh %1 %2 %3 %4 %5 %6 %7 %8 %9 </dev/null >/dev/null 2>&1 &")
                         .arg(shell_quote(script_path), shell_quote(QString::number(process_id)),
                              shell_quote(package_path), shell_quote(bundle), shell_quote(update_dir),
                              shell_quote(available.toString()),
                              shell_quote(QString::number(static_cast<qulonglong>(QFileInfo(QDir::homePath()).ownerId()))),
-                             shell_quote(authorization_marker));
+                             shell_quote(authorization_marker), shell_quote(updater_log_path));
                     const QString admin_suffix = needs_admin ? QStringLiteral(" with administrator privileges") : QString{};
                     const QString apple_script = QStringLiteral(
                         "try\n"
@@ -867,7 +868,8 @@ void MainWindow::createUi() {
                     auto shell_quote = [](QString value) { value.replace(QStringLiteral("'"), QStringLiteral("'\\''")); return QStringLiteral("'") + value + QStringLiteral("'"); };
                     const QString script = QStringLiteral("#!/bin/sh\nset -eu\npid=%1\nroot=%2\npackage=%3\nupdate_dir=%4\nlog=\"$update_dir/apply-update.log\"\n/bin/mkdir -p \"$update_dir\"\nexec >>\"$log\" 2>&1\nparent=$(/usr/bin/dirname \"$root\")\ntransaction=\"\"\nbackup=\"\"\nrollback() { code=$?; trap - EXIT; if [ \"$code\" -ne 0 ]; then echo \"Update failed with status $code at $(/bin/date)\"; if [ -n \"$backup\" ] && [ -d \"$backup\" ]; then /bin/rm -rf \"$root\"; /bin/mv \"$backup\" \"$root\"; fi; if [ -x \"$root/Rythmo\" ]; then \"$root/Rythmo\" >/dev/null 2>&1 & fi; if [ -n \"$transaction\" ]; then echo \"Recovery files retained at $transaction\"; fi; fi; exit \"$code\"; }\ntrap rollback EXIT\nwhile /bin/kill -0 \"$pid\" 2>/dev/null; do /bin/sleep 0.5; done\ntransaction=$(/usr/bin/mktemp -d \"$parent/.Rythmo-update.XXXXXX\")\ntmp=\"$transaction/extracted\"\nbackup=\"$transaction/previous\"\n/bin/mkdir -p \"$tmp\"\n/usr/bin/tar -xzf \"$package\" -C \"$tmp\"\nnew_root=$(/usr/bin/find \"$tmp\" -mindepth 1 -maxdepth 1 -type d -name 'Rythmo-linux-*' -print -quit)\n[ -n \"$new_root\" ] && [ -x \"$new_root/Rythmo\" ] || { echo \"Portable package is invalid\"; exit 1; }\n/bin/mv \"$root\" \"$backup\"\n/bin/mv \"$new_root\" \"$root\"\n\"$root/Rythmo\" >/dev/null 2>&1 &\nnew_pid=$!\n/bin/sleep 2\n/bin/kill -0 \"$new_pid\" >/dev/null 2>&1 || { echo \"Updated Rythmo did not start\"; exit 1; }\n/bin/rm -rf \"$backup\" \"$transaction\"\ntrap - EXIT\n")
                         .arg(process_id).arg(shell_quote(QFileInfo(running_app_path).absolutePath()),
-                                             shell_quote(package_path), shell_quote(update_dir));
+                                             shell_quote(package_path), shell_quote(update_dir),
+                                             shell_quote(updater_log_path));
                     QFile script_file(script_path);
                     if (!script_file.open(QIODevice::WriteOnly | QIODevice::Truncate) || script_file.write(script.toUtf8()) != script.toUtf8().size()) {
                         restore_main_window();
@@ -881,7 +883,7 @@ void MainWindow::createUi() {
                         restore_main_window();
                         QMessageBox::warning(this, QStringLiteral("Mise à jour impossible"),
                             QStringLiteral("Le programme d’installation ne peut pas démarrer. Le journal détaillé est conservé dans :\n%1")
-                                .arg(QDir(update_dir).filePath(QStringLiteral("apply-update.log"))));
+                                .arg(updater_log_path));
                         return;
                     }
                     progress->setLabelText(QStringLiteral("Rythmo %1 est prêt. Fermeture puis redémarrage…").arg(tag));
