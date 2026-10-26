@@ -875,7 +875,7 @@ void MainWindow::createUi() {
                         return;
                     }
                     script_file.close();
-                    const bool updater_started = QProcess::startDetached(QStringLiteral("/bin/sh"), {script_path});
+                    updater_started = QProcess::startDetached(QStringLiteral("/bin/sh"), {script_path});
 #endif
                     if (!updater_started) {
                         restore_main_window();
