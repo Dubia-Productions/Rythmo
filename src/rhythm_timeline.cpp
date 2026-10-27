@@ -670,7 +670,36 @@ void RhythmTimelineWidget::mouseReleaseEvent(QMouseEvent* event) {
     QWidget::mouseReleaseEvent(event);
 }
 
+void RhythmTimelineWidget::navigateToAdjacentCue(int direction) {
+    if (direction == 0 || !playhead_handler_) return;
+    std::vector<qint64> targets;
+    for (const auto& line : cached_lines_) {
+        for (const auto& cue : line.cues)
+            if (!cue.start_follows_playhead) targets.push_back(cue.start_ms);
+    }
+    for (const auto& marker : cached_markers_)
+        if (!marker.loop) targets.push_back(marker.position_ms);
+    if (targets.empty()) return;
+
+    std::sort(targets.begin(), targets.end());
+    targets.erase(std::unique(targets.begin(), targets.end()), targets.end());
+    const qint64 tolerance = std::max<qint64>(1, qRound64(500.0 / std::max(1.0, media_fps_)));
+    if (direction > 0) {
+        const auto next = std::upper_bound(targets.begin(), targets.end(), playhead_ms_ + tolerance);
+        if (next != targets.end()) playhead_handler_(*next);
+    } else {
+        const auto previous = std::lower_bound(targets.begin(), targets.end(), playhead_ms_ - tolerance);
+        if (previous != targets.begin()) playhead_handler_(*std::prev(previous));
+    }
+}
+
 void RhythmTimelineWidget::keyPressEvent(QKeyEvent* event) {
+    if (event->modifiers() == Qt::NoModifier &&
+        (event->key() == Qt::Key_Left || event->key() == Qt::Key_Right)) {
+        navigateToAdjacentCue(event->key() == Qt::Key_Right ? 1 : -1);
+        event->accept();
+        return;
+    }
     if ((event->modifiers().testFlag(Qt::ShiftModifier) || event->modifiers().testFlag(Qt::AltModifier)) &&
         (event->key() == Qt::Key_Left || event->key() == Qt::Key_Right)) {
         stepTimelineFrame(event->key() == Qt::Key_Right ? 1 : -1);
