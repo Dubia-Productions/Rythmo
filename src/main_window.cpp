@@ -563,7 +563,17 @@ void MainWindow::createUi() {
 
             const Qt::WindowStates previous_window_state = windowState();
             auto* progress = new QProgressDialog(QStringLiteral("Téléchargement de Rythmo %1…").arg(tag),
-                QStringLiteral("Annuler"), 0, 1000);
+                QStringLiteral("Annuler"), 0, 1000, this);
+            progress->setFont(qApp->font());
+            progress->setWindowIcon(windowIcon());
+            progress->setStyleSheet(QStringLiteral(R"QSS(
+                QProgressDialog { background: #0B1118; color: #EEF3F8; font-family: "Montserrat"; font-size: 10pt; }
+                QLabel { background: transparent; color: #EEF3F8; font-family: "Montserrat"; font-size: 10pt; }
+                QProgressBar { background: #121C26; color: #EEF3F8; border: 1px solid #304252; border-radius: 7px; min-height: 14px; text-align: center; font-family: "Montserrat"; font-size: 9pt; }
+                QProgressBar::chunk { background: #43B5E4; border-radius: 6px; }
+                QPushButton { background: #172330; border: 1px solid #304252; border-radius: 8px; padding: 7px 13px; color: #EEF3F8; font-family: "Montserrat"; font-size: 9pt; font-weight: 600; }
+                QPushButton:hover { background: #213243; border-color: #4AB7E5; }
+            )QSS"));
             progress->setWindowTitle(QStringLiteral("Mise à jour de Rythmo"));
             progress->setWindowModality(Qt::ApplicationModal);
             progress->setMinimumDuration(0);
@@ -669,8 +679,65 @@ void MainWindow::createUi() {
 #ifdef Q_OS_WIN
                     auto quote = [](QString value) { value.replace(QStringLiteral("'"), QStringLiteral("''")); return QStringLiteral("'") + value + QStringLiteral("'"); };
                     const QString executable = QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("Rythmo.exe"));
-                    const QString script = QStringLiteral("$ErrorActionPreference='Stop'\n$updateLog=%5\n$pidToWait=%1\nwhile (Get-Process -Id $pidToWait -ErrorAction SilentlyContinue) { Start-Sleep -Milliseconds 500 }\n$root=%2\n$parent=Split-Path -Parent $root\n$transaction=Join-Path $parent ('.Rythmo-update-' + [guid]::NewGuid().ToString('N'))\n$payload=Join-Path $transaction 'payload'\n$backup=Join-Path $transaction 'previous'\nNew-Item -ItemType Directory -Force -Path $payload | Out-Null\ntry {\n  Expand-Archive -LiteralPath %3 -DestinationPath $payload -Force\n  if (-not (Test-Path -LiteralPath (Join-Path $payload 'Rythmo.exe'))) { throw 'Rythmo.exe is missing from the package.' }\n  Move-Item -LiteralPath $root -Destination $backup\n  New-Item -ItemType Directory -Path $root | Out-Null\n  Copy-Item -Path (Join-Path $payload '*') -Destination $root -Recurse -Force\n  Start-Process -FilePath %4\n  Start-Sleep -Seconds 2\n  if (-not (Get-Process -Name 'Rythmo' -ErrorAction SilentlyContinue)) { throw 'Updated Rythmo did not start.' }\n  Remove-Item -LiteralPath $backup -Recurse -Force\n} catch {\n  ($_ | Out-String) | Add-Content -LiteralPath $updateLog -ErrorAction SilentlyContinue\n  if (Test-Path -LiteralPath $backup) {\n    if (Test-Path -LiteralPath $root) { Remove-Item -LiteralPath $root -Recurse -Force }\n    Move-Item -LiteralPath $backup -Destination $root\n  }\n  if (Test-Path -LiteralPath (Join-Path $root 'Rythmo.exe')) { Start-Process -FilePath %4 -ErrorAction SilentlyContinue }\n  throw\n} finally { Remove-Item -LiteralPath $transaction -Recurse -Force -ErrorAction SilentlyContinue }\n")
-                        .arg(process_id).arg(quote(QCoreApplication::applicationDirPath()), quote(package_path), quote(executable), quote(updater_log_path));
+                    const QString script = QStringLiteral(R"PS($ErrorActionPreference = 'Stop'
+$updateLog = %5
+$pidToWait = %1
+$root = %2
+$package = %3
+$exe = %4
+$expectedVersion = %6
+while (Get-Process -Id $pidToWait -ErrorAction SilentlyContinue) { Start-Sleep -Milliseconds 500 }
+$parent = Split-Path -Parent $root
+$transaction = Join-Path $parent ('.Rythmo-update-' + [guid]::NewGuid().ToString('N'))
+$payload = Join-Path $transaction 'payload'
+$backup = Join-Path $transaction 'previous'
+$newProcess = $null
+New-Item -ItemType Directory -Force -Path $transaction | Out-Null
+try {
+  Expand-Archive -LiteralPath $package -DestinationPath $payload -Force
+  $candidate = Join-Path $payload 'Rythmo.exe'
+  if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) { throw 'Rythmo.exe is missing from the update package.' }
+  Push-Location $payload
+  try {
+    $versionOutput = (& $candidate --version 2>&1 | Out-String).Trim()
+    if ($LASTEXITCODE -ne 0 -or $versionOutput -notmatch [regex]::Escape($expectedVersion)) {
+      throw "Package version check failed. Expected $expectedVersion; received: $versionOutput"
+    }
+  } finally { Pop-Location }
+  if (-not (Test-Path -LiteralPath $root -PathType Container)) { throw "Installed application folder was not found: $root" }
+  Move-Item -LiteralPath $root -Destination $backup
+  Move-Item -LiteralPath $payload -Destination $root
+  $newProcess = Start-Process -FilePath $exe -WorkingDirectory $root -PassThru
+  $deadline = [DateTime]::UtcNow.AddSeconds(20)
+  do {
+    Start-Sleep -Milliseconds 500
+    $newProcess.Refresh()
+    if ($newProcess.HasExited) { throw "Updated Rythmo exited during startup (code $($newProcess.ExitCode))." }
+  } while ([DateTime]::UtcNow -lt $deadline)
+  $running = Get-CimInstance Win32_Process -Filter "ProcessId = $($newProcess.Id)"
+  if (-not $running -or $running.ExecutablePath -ine $exe) { throw 'The updated executable could not be verified after restart.' }
+  "Successfully installed Rythmo $expectedVersion and verified process $($newProcess.Id)." | Add-Content -LiteralPath $updateLog
+  Remove-Item -LiteralPath $backup -Recurse -Force
+} catch {
+  ($_ | Out-String) | Add-Content -LiteralPath $updateLog -ErrorAction SilentlyContinue
+  if ($newProcess) {
+    $newProcess.Refresh()
+    if (-not $newProcess.HasExited) { Stop-Process -Id $newProcess.Id -Force -ErrorAction SilentlyContinue }
+  }
+  if (Test-Path -LiteralPath $backup -PathType Container) {
+    if (Test-Path -LiteralPath $root) { Remove-Item -LiteralPath $root -Recurse -Force }
+    Move-Item -LiteralPath $backup -Destination $root
+  }
+  if (Test-Path -LiteralPath (Join-Path $root 'Rythmo.exe')) {
+    Start-Process -FilePath $exe -WorkingDirectory $root -ErrorAction SilentlyContinue
+  }
+} finally {
+  Remove-Item -LiteralPath $transaction -Recurse -Force -ErrorAction SilentlyContinue
+}
+)PS")
+                        .arg(process_id)
+                        .arg(quote(QCoreApplication::applicationDirPath()), quote(package_path), quote(executable),
+                             quote(updater_log_path), quote(available.toString()));
                     if (!QFile::exists(executable)) {
                         restore_main_window();
                         QMessageBox::warning(this, QStringLiteral("Mise à jour impossible"), QStringLiteral("L’exécutable Rythmo est introuvable dans le dossier de l’application."));
@@ -684,7 +751,9 @@ void MainWindow::createUi() {
                     }
                     script_file.close();
                     updater_started = QProcess::startDetached(QStringLiteral("powershell.exe"),
-                        {QStringLiteral("-NoProfile"), QStringLiteral("-ExecutionPolicy"), QStringLiteral("Bypass"), QStringLiteral("-File"), script_path});
+                        {QStringLiteral("-NoProfile"), QStringLiteral("-WindowStyle"), QStringLiteral("Hidden"),
+                         QStringLiteral("-ExecutionPolicy"), QStringLiteral("Bypass"),
+                         QStringLiteral("-File"), script_path});
 #elif defined(Q_OS_MACOS)
                     QString bundle = QDir(QCoreApplication::applicationDirPath()).absoluteFilePath(QStringLiteral("../.."));
                     bundle = QDir::cleanPath(bundle);
