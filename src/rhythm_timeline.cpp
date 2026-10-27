@@ -12,6 +12,8 @@
 #include <QCursor>
 #include <QTime>
 #include <QWheelEvent>
+#include <QApplication>
+#include <QShortcut>
 #include <QStringList>
 
 #include <algorithm>
@@ -58,6 +60,21 @@ RhythmTimelineWidget::RhythmTimelineWidget(QWidget* parent) : QWidget(parent) {
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     setMouseTracking(true);
     setFocusPolicy(Qt::StrongFocus);
+
+    const auto bind_navigation = [this](int key, int direction) {
+        auto* shortcut = new QShortcut(QKeySequence(key), this);
+        shortcut->setContext(Qt::ApplicationShortcut);
+        connect(shortcut, &QShortcut::activated, this, [this, direction] {
+            if (QApplication::activeWindow() != window() || QApplication::activeModalWidget()) return;
+            QWidget* focus = QApplication::focusWidget();
+            if (focus && (focus->inherits("QLineEdit") || focus->inherits("QTextEdit") ||
+                          focus->inherits("QPlainTextEdit") || focus->inherits("QAbstractSpinBox") ||
+                          focus->inherits("QComboBox"))) return;
+            navigateToAdjacentCue(direction);
+        });
+    };
+    bind_navigation(Qt::Key_Left, -1);
+    bind_navigation(Qt::Key_Right, 1);
 }
 
 void RhythmTimelineWidget::setDocument(const DetxDocument* document, Timecode video_start,
@@ -695,12 +712,6 @@ void RhythmTimelineWidget::navigateToAdjacentCue(int direction) {
 }
 
 void RhythmTimelineWidget::keyPressEvent(QKeyEvent* event) {
-    if (event->modifiers() == Qt::NoModifier &&
-        (event->key() == Qt::Key_Left || event->key() == Qt::Key_Right)) {
-        navigateToAdjacentCue(event->key() == Qt::Key_Right ? 1 : -1);
-        event->accept();
-        return;
-    }
     if ((event->modifiers().testFlag(Qt::ShiftModifier) || event->modifiers().testFlag(Qt::AltModifier)) &&
         (event->key() == Qt::Key_Left || event->key() == Qt::Key_Right)) {
         stepTimelineFrame(event->key() == Qt::Key_Right ? 1 : -1);
