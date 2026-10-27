@@ -15,6 +15,7 @@
 #include <QStringList>
 
 #include <algorithm>
+#include <iterator>
 #include <cmath>
 #include <limits>
 
