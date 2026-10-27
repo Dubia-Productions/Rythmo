@@ -40,6 +40,7 @@ public:
     void setPlayheadDragHandler(std::function<void(bool)> handler);
     void setTextFont(const QFont& font);
     void setCleanPresentation(bool enabled);
+    void navigateToAdjacentCue(int direction);
     qint64 positionForTimecode(const Timecode& timecode) const;
 
 protected:
