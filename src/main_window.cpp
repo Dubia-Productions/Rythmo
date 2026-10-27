@@ -2753,6 +2753,10 @@ void MainWindow::createMenus() {
     auto* split_action = edit_menu->addAction("Scinder la réplique…");
     split_action->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_K));
     connect(split_action, &QAction::triggered, this, [this] { splitSelectedLine(); });
+    auto* shot_action = edit_menu->addAction(QStringLiteral("Ajouter un changement de plan"));
+    shot_action->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_M));
+    shot_action->setShortcutContext(Qt::ApplicationShortcut);
+    connect(shot_action, &QAction::triggered, this, [this] { addShotMarker(); });
 
     auto* view_menu = menuBar()->addMenu("Affichage");
     auto* fullscreen_action = view_menu->addAction("Vidéo + bande rythmo en plein écran");
@@ -3256,6 +3260,28 @@ void MainWindow::splitSelectedLine() {
         status_label_->setText("Réplique scindée au timecode choisi. Chaque partie a son propre intervalle rythmo.");
     } catch (const std::exception& error) {
         QMessageBox::information(this, "Scission impossible", QString::fromUtf8(error.what()));
+    }
+}
+
+void MainWindow::addShotMarker() {
+    if (!document_) {
+        status_label_->setText(QStringLiteral("Ouvrez ou créez un projet DetX avant d’ajouter un changement de plan."));
+        return;
+    }
+    const Timecode timecode = currentTimecode();
+    try {
+        if (!document_->add_shot_marker(timecode)) {
+            status_label_->setText(QStringLiteral("Un changement de plan existe déjà à %1.")
+                                   .arg(QString::fromStdString(timecode.format())));
+            return;
+        }
+        setDirty(true);
+        refreshTimeline();
+        status_label_->setText(QStringLiteral("Changement de plan ajouté à %1.")
+                               .arg(QString::fromStdString(timecode.format())));
+    } catch (const std::exception& error) {
+        QMessageBox::warning(this, QStringLiteral("Changement de plan impossible"),
+                             QString::fromUtf8(error.what()));
     }
 }
 

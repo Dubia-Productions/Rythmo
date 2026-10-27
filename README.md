@@ -34,12 +34,13 @@ Les modèles de séparation se téléchargent à la première utilisation du pro
 | Modifier la réplique sélectionnée | F2 ou double-clic |
 | Supprimer la sélection | Suppr |
 | Scinder une réplique | Ctrl+K (⌘+K sur macOS) |
+| Ajouter un changement de plan à la position de lecture | Ctrl+M (⌘+M sur macOS) |
 | Avancer ou reculer d’une image | Alt+flèches ou Maj+flèches |
 | Zoomer sur la bande | + / - ou molette |
 | Naviguer sur la bande | Défilement à deux doigts du trackpad |
 | Annuler / rétablir | Ctrl+Z / Ctrl+Maj+Z ou ⌘+Z / ⌘+Maj+Z |
 
-Un clic droit sur la bande ajoute une réplique à l’emplacement choisi. Sur une réplique, il ouvre les commandes de modification et de suppression. Dans le champ de texte, Entrée valide la saisie. Ctrl+K scinde une réplique ; il ne marque pas un changement de plan.
+Un clic droit sur la bande ajoute une réplique à l’emplacement choisi. Sur une réplique, il ouvre les commandes de modification et de suppression. Dans le champ de texte, Entrée valide la saisie. Ctrl+K scinde une réplique ; Ctrl+M ajoute un changement de plan au timecode de lecture.
 
 ## Téléchargements et compatibilité
 

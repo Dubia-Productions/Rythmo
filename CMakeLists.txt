@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-set(RYTHMO_VERSION "0.4.1" CACHE STRING "Rythmo application version")
+set(RYTHMO_VERSION "0.4.3" CACHE STRING "Rythmo application version")
 project(rythmo VERSION "${RYTHMO_VERSION}" LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)

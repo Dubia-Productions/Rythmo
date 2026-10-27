@@ -145,6 +145,7 @@ public:
     void set_line_text(Line& line, const std::string& value);
     void set_lipsync_timecode(Lipsync& sign, const Timecode& timecode);
     void split_line_at(Line& line, const Timecode& timecode);
+    bool add_shot_marker(const Timecode& timecode);
     void set_video_reference(const std::string& path);
     void shift_all_timecodes(std::int64_t frame_delta);
     Line& add_line(const std::string& role_id, int track, const Timecode& in, const Timecode& out);

@@ -1000,6 +1000,41 @@ Line& DetxDocument::add_line(const std::string& role_id, int track, const Timeco
     return *inserted;
 }
 
+bool DetxDocument::add_shot_marker(const Timecode& timecode) {
+    const auto target_frames = timecode.to_frames(fps_);
+    const auto already_exists = std::any_of(markers_.begin(), markers_.end(), [&](const Marker& marker) {
+        return marker.kind == "shot" && marker.timecode.to_frames(fps_) == target_frames;
+    });
+    if (already_exists) return false;
+
+    auto* container = body_->first_child("rythmo");
+    if (!container) container = body_;
+    auto shot = std::make_unique<XmlNode>("shot");
+    shot->set_attribute("timecode", timecode.format());
+    XmlNode* created = shot.get();
+
+    auto insertion = container->content.end();
+    for (auto it = container->content.begin(); it != container->content.end(); ++it) {
+        if (it->kind != XmlPart::Kind::Element || !it->element) continue;
+        const auto name = local_name(it->element->name);
+        if (name != "line" && name != "loop" && name != "shot") continue;
+        try {
+            if (get_timecode(*it->element)->to_frames(fps_) > target_frames) {
+                insertion = it;
+                break;
+            }
+        } catch (...) { /* Leave malformed existing events untouched. */ }
+    }
+
+    XmlPart child(*shot);
+    child.element = std::move(shot);
+    container->content.insert(insertion, std::move(child));
+    read_body();
+    return std::any_of(markers_.begin(), markers_.end(), [&](const Marker& marker) {
+        return marker.element == created && marker.kind == "shot";
+    });
+}
+
 void DetxDocument::remove_line(Line& line) {
     if (!line.element || !erase_child(*body_, line.element))
         throw std::invalid_argument("line is not attached to this DetX document");

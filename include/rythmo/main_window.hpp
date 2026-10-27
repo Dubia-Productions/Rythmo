@@ -152,6 +152,7 @@ private:
     void addLineAt(int track, qint64 position_ms);
     void editTimelineLine(int row);
     void splitSelectedLine();
+    void addShotMarker();
     void toggleRhythmFullscreen();
     void exportVideoWithRhythm();
     void writeNextExportFrame();
