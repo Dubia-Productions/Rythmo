@@ -1,5 +1,5 @@
 #ifndef AppVersion
-  #define AppVersion "0.4.1"
+  #define AppVersion "0.4.6"
 #endif
 #ifndef PackageDir
   #define PackageDir "package/Rythmo-windows-x64"

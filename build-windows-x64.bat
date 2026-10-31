@@ -7,7 +7,7 @@ set "DIST_DIR=%ROOT%dist\Rythmo-by-Dubia-Productions-windows-x64-v8"
 set "QT_ARCH=win64_msvc2022_64"
 set "QT_HOST=windows"
 set "QT_VERSION=6.8.3"
-if not defined RYTHMO_VERSION set "RYTHMO_VERSION=0.4.4"
+if not defined RYTHMO_VERSION set "RYTHMO_VERSION=0.4.6"
 
 echo [Rythmo] Build Windows x64
 where winget >nul 2>nul || if /I not "%CI%"=="true" (echo ERREUR: winget est requis hors CI pour installer automatiquement les dependances manquantes.& exit /b 1)

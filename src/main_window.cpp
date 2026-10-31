@@ -686,8 +686,11 @@ $root = %2
 $package = %3
 $exe = %4
 $expectedVersion = %6
-while (Get-Process -Id $pidToWait -ErrorAction SilentlyContinue) { Start-Sleep -Milliseconds 500 }
 $parent = Split-Path -Parent $root
+Set-Location -LiteralPath $parent
+[Environment]::CurrentDirectory = $parent
+"[$(Get-Date -Format o)] Waiting for Rythmo process $pidToWait to exit." | Add-Content -LiteralPath $updateLog
+while (Get-Process -Id $pidToWait -ErrorAction SilentlyContinue) { Start-Sleep -Milliseconds 500 }
 $transaction = Join-Path $parent ('.Rythmo-update-' + [guid]::NewGuid().ToString('N'))
 $payload = Join-Path $transaction 'payload'
 $backup = Join-Path $transaction 'previous'
@@ -705,8 +708,21 @@ try {
     }
   } finally { Pop-Location }
   if (-not (Test-Path -LiteralPath $root -PathType Container)) { throw "Installed application folder was not found: $root" }
-  Move-Item -LiteralPath $root -Destination $backup
-  Move-Item -LiteralPath $payload -Destination $root
+  "[$(Get-Date -Format o)] Replacing application folder: $root" | Add-Content -LiteralPath $updateLog
+  $moveDirectory = { param($source, $destination)
+    $lastError = $null
+    for ($attempt = 1; $attempt -le 20; $attempt++) {
+      try { Move-Item -LiteralPath $source -Destination $destination -ErrorAction Stop; return }
+      catch {
+        $lastError = $_
+        if ($attempt -lt 20) { Start-Sleep -Milliseconds 500 }
+      }
+    }
+    throw $lastError
+  }
+  & $moveDirectory $root $backup
+  & $moveDirectory $payload $root
+  "[$(Get-Date -Format o)] Replacement complete; starting $exe" | Add-Content -LiteralPath $updateLog
   $newProcess = Start-Process -FilePath $exe -WorkingDirectory $root -PassThru
   $deadline = [DateTime]::UtcNow.AddSeconds(20)
   do {
@@ -753,7 +769,8 @@ try {
                     updater_started = QProcess::startDetached(QStringLiteral("powershell.exe"),
                         {QStringLiteral("-NoProfile"), QStringLiteral("-WindowStyle"), QStringLiteral("Hidden"),
                          QStringLiteral("-ExecutionPolicy"), QStringLiteral("Bypass"),
-                         QStringLiteral("-File"), script_path});
+                         QStringLiteral("-File"), script_path},
+                        QFileInfo(QCoreApplication::applicationDirPath()).absolutePath());
 #elif defined(Q_OS_MACOS)
                     QString bundle = QDir(QCoreApplication::applicationDirPath()).absoluteFilePath(QStringLiteral("../.."));
                     bundle = QDir::cleanPath(bundle);

@@ -100,7 +100,7 @@ jobs:
       - name: Set build version
         shell: bash
         run: |
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then version="${GITHUB_REF_NAME#v}"; else version="0.4.4"; fi
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then version="${GITHUB_REF_NAME#v}"; else version="0.4.6"; fi
           echo "RYTHMO_VERSION=$version" >> "$GITHUB_ENV"
 
       - name: Build and test on Windows
