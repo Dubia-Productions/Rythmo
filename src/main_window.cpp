@@ -4242,12 +4242,32 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
     }
     if (event->type() == QEvent::KeyPress && !QApplication::activeModalWidget()) {
         QWidget* focus = QApplication::focusWidget();
-        const bool in_this_window = focus && (focus == this || isAncestorOf(focus));
+        QWidget* active_window = QApplication::activeWindow();
+        const bool in_this_window = focus &&
+            (focus == this || isAncestorOf(focus) ||
+             (full_screen_host_ && (focus == full_screen_host_ || full_screen_host_->isAncestorOf(focus))));
+        const bool active_rythmo_window = active_window == this || active_window == full_screen_host_;
         const bool editing_text = qobject_cast<QLineEdit*>(focus) || qobject_cast<QTextEdit*>(focus) ||
                                   qobject_cast<QPlainTextEdit*>(focus) || qobject_cast<QAbstractSpinBox*>(focus) ||
                                   qobject_cast<QComboBox*>(focus);
-        if (in_this_window && !editing_text) {
-            auto* key = static_cast<QKeyEvent*>(event);
+        auto* key = static_cast<QKeyEvent*>(event);
+        const auto navigation_modifiers = key->modifiers() &
+            (Qt::AltModifier | Qt::ControlModifier | Qt::MetaModifier | Qt::ShiftModifier);
+        const bool horizontal_arrow = key->key() == Qt::Key_Left || key->key() == Qt::Key_Right;
+        if (in_this_window && active_rythmo_window && !editing_text && timeline_ && horizontal_arrow) {
+            const int direction = key->key() == Qt::Key_Right ? 1 : -1;
+            if (navigation_modifiers == Qt::NoModifier) {
+                timeline_->navigateToAdjacentCue(direction);
+                key->accept();
+                return true;
+            }
+            if (navigation_modifiers == Qt::AltModifier || navigation_modifiers == Qt::ShiftModifier) {
+                timeline_->stepFrame(direction);
+                key->accept();
+                return true;
+            }
+        }
+        if (in_this_window && active_rythmo_window && !editing_text) {
             if (key->matches(QKeySequence::Undo)) {
                 undoLastChange();
                 event->accept();

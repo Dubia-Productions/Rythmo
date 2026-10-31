@@ -12,8 +12,6 @@
 #include <QCursor>
 #include <QTime>
 #include <QWheelEvent>
-#include <QApplication>
-#include <QShortcut>
 #include <QStringList>
 
 #include <algorithm>
@@ -60,21 +58,6 @@ RhythmTimelineWidget::RhythmTimelineWidget(QWidget* parent) : QWidget(parent) {
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     setMouseTracking(true);
     setFocusPolicy(Qt::StrongFocus);
-
-    const auto bind_navigation = [this](int key, int direction) {
-        auto* shortcut = new QShortcut(QKeySequence(key), this);
-        shortcut->setContext(Qt::ApplicationShortcut);
-        connect(shortcut, &QShortcut::activated, this, [this, direction] {
-            if (QApplication::activeWindow() != window() || QApplication::activeModalWidget()) return;
-            QWidget* focus = QApplication::focusWidget();
-            if (focus && (focus->inherits("QLineEdit") || focus->inherits("QTextEdit") ||
-                          focus->inherits("QPlainTextEdit") || focus->inherits("QAbstractSpinBox") ||
-                          focus->inherits("QComboBox"))) return;
-            navigateToAdjacentCue(direction);
-        });
-    };
-    bind_navigation(Qt::Key_Left, -1);
-    bind_navigation(Qt::Key_Right, 1);
 }
 
 void RhythmTimelineWidget::setDocument(const DetxDocument* document, Timecode video_start,
@@ -703,15 +686,29 @@ void RhythmTimelineWidget::navigateToAdjacentCue(int direction) {
     targets.erase(std::unique(targets.begin(), targets.end()), targets.end());
     const qint64 tolerance = std::max<qint64>(1, qRound64(500.0 / std::max(1.0, media_fps_)));
     if (direction > 0) {
-        const auto next = std::upper_bound(targets.begin(), targets.end(), playhead_ms_ + tolerance);
+        const qint64 threshold = playhead_ms_ > std::numeric_limits<qint64>::max() - tolerance
+            ? std::numeric_limits<qint64>::max() : playhead_ms_ + tolerance;
+        const auto next = std::upper_bound(targets.begin(), targets.end(), threshold);
         if (next != targets.end()) playhead_handler_(*next);
     } else {
-        const auto previous = std::lower_bound(targets.begin(), targets.end(), playhead_ms_ - tolerance);
+        const qint64 threshold = playhead_ms_ < std::numeric_limits<qint64>::min() + tolerance
+            ? std::numeric_limits<qint64>::min() : playhead_ms_ - tolerance;
+        const auto previous = std::lower_bound(targets.begin(), targets.end(), threshold);
         if (previous != targets.begin()) playhead_handler_(*std::prev(previous));
     }
 }
 
+void RhythmTimelineWidget::stepFrame(int direction) {
+    stepTimelineFrame(direction);
+}
+
 void RhythmTimelineWidget::keyPressEvent(QKeyEvent* event) {
+    if (event->modifiers() == Qt::NoModifier &&
+        (event->key() == Qt::Key_Left || event->key() == Qt::Key_Right)) {
+        navigateToAdjacentCue(event->key() == Qt::Key_Right ? 1 : -1);
+        event->accept();
+        return;
+    }
     if ((event->modifiers().testFlag(Qt::ShiftModifier) || event->modifiers().testFlag(Qt::AltModifier)) &&
         (event->key() == Qt::Key_Left || event->key() == Qt::Key_Right)) {
         stepTimelineFrame(event->key() == Qt::Key_Right ? 1 : -1);

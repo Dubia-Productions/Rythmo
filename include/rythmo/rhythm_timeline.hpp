@@ -41,6 +41,7 @@ public:
     void setTextFont(const QFont& font);
     void setCleanPresentation(bool enabled);
     void navigateToAdjacentCue(int direction);
+    void stepFrame(int direction);
     qint64 positionForTimecode(const Timecode& timecode) const;
 
 protected:
