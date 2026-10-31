@@ -1006,7 +1006,21 @@ try {
         addLineAt(track, position_ms);
         timeline_->setFocus(Qt::OtherFocusReason);
     });
-    timeline_->setEditHandler([this](int row) { editTimelineLine(row); });
+    timeline_->setEditHandler([this](int row, int cue) { editTimelineLine(row, cue); });
+    timeline_->setTextEditHandler([this](int row, std::size_t first, std::size_t count, const QString& text) {
+        if (!document_ || row < 0 || row >= static_cast<int>(document_->lines().size())) return;
+        try {
+            auto& line = document_->lines()[static_cast<std::size_t>(row)];
+            if (count > 0) document_->set_text_segments_text(line, first, count, utf8(text));
+            else document_->set_line_text(line, utf8(text));
+            setDirty(true);
+            refreshTable();
+            if (row < lines_table_->rowCount()) lines_table_->selectRow(row);
+            status_label_->setText(QStringLiteral("Réplique mise à jour."));
+        } catch (const std::exception& error) {
+            QMessageBox::warning(this, QStringLiteral("Modification impossible"), QString::fromUtf8(error.what()));
+        }
+    });
     timeline_->setDeleteHandler([this](int row) {
         if (row >= 0 && row < lines_table_->rowCount()) lines_table_->selectRow(row);
         removeSelectedLine();
@@ -1161,7 +1175,7 @@ try {
                 timeline_->setSelection(row, selected_timeline_track_);
             });
     connect(lines_table_, &QTableWidget::cellDoubleClicked, this, [this](int row, int column) {
-        if (column == 4) editTimelineLine(row);
+        if (column == 4) editTimelineLine(row, -1);
         else seekFromTableRow(row);
     });
 }
@@ -3275,45 +3289,35 @@ void MainWindow::addLineAt(int track, qint64 position_ms) {
     }
 }
 
-void MainWindow::editTimelineLine(int row) {
+void MainWindow::editTimelineLine(int row, int cue_index) {
     if (!document_ || row < 0 || row >= static_cast<int>(document_->lines().size())) return;
-    const auto& original = document_->lines()[static_cast<std::size_t>(row)];
-    QDialog dialog(this);
-    dialog.setWindowTitle(QStringLiteral("Modifier la réplique"));
-    auto* layout = new QVBoxLayout(&dialog);
-    auto* role = new QComboBox(&dialog);
-    role->addItem(QStringLiteral("Sans rôle"), QString{});
-    for (const auto& item : document_->roles()) role->addItem(qstr(item.name), qstr(item.id));
-    int current = role->findData(qstr(original.role_id));
-    if (current < 0 && !original.role_id.empty()) { role->addItem(qstr(original.role_id), qstr(original.role_id)); current = role->count() - 1; }
-    role->setCurrentIndex(std::max(0, current));
-    auto* text = new QLineEdit(&dialog);
-    QString initial_text = qstr(original.text);
-    initial_text.replace(QRegularExpression(QStringLiteral("[\\r\\n]+")), QStringLiteral(" "));
-    text->setText(initial_text);
-    text->setMinimumWidth(480);
-    layout->addWidget(new QLabel(QStringLiteral("Personnage"), &dialog));
-    layout->addWidget(role);
-    layout->addWidget(new QLabel(QStringLiteral("Texte de la réplique"), &dialog));
-    layout->addWidget(text, 1);
-    auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
-    layout->addWidget(buttons);
-    connect(text, &QLineEdit::returnPressed, &dialog, &QDialog::accept);
-    connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
-    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
-    if (dialog.exec() != QDialog::Accepted) return;
-    try {
-        auto& line = document_->lines()[static_cast<std::size_t>(row)];
-        document_->set_line_text(line, utf8(text->text()));
-        auto& updated = document_->lines()[static_cast<std::size_t>(row)];
-        updated.role_id = utf8(role->currentData().toString());
-        updated.element->set_attribute("role", updated.role_id);
+    auto& line = document_->lines()[static_cast<std::size_t>(row)];
+    if (line.role_id.empty()) {
+        if (document_->roles().empty()) {
+            QMessageBox::information(this, QStringLiteral("Aucun rôle"),
+                QStringLiteral("Ajoutez un personnage avant de modifier cette réplique."));
+            manageRoles();
+            if (!document_ || document_->roles().empty()) return;
+        }
+        QStringList names;
+        for (const auto& role : document_->roles()) {
+            const QString name = qstr(role.name);
+            const auto duplicates = std::count_if(document_->roles().begin(), document_->roles().end(),
+                [&](const Role& other) { return other.name == role.name; });
+            names << (duplicates > 1 ? name + QStringLiteral(" (") + qstr(role.id) + QLatin1Char(')') : name);
+        }
+        bool accepted = false;
+        const QString chosen = QInputDialog::getItem(this, QStringLiteral("Personnage de la réplique"),
+            QStringLiteral("Qui parle ?"), names, 0, false, &accepted);
+        if (!accepted) return;
+        const int index = names.indexOf(chosen);
+        if (index < 0 || index >= static_cast<int>(document_->roles().size())) return;
+        line.role_id = document_->roles()[static_cast<std::size_t>(index)].id;
+        if (line.element) line.element->set_attribute("role", line.role_id);
         setDirty(true);
         refreshTable();
-        if (row < lines_table_->rowCount()) lines_table_->selectRow(row);
-    } catch (const std::exception& error) {
-        QMessageBox::warning(this, QStringLiteral("Modification impossible"), QString::fromUtf8(error.what()));
     }
+    timeline_->beginInlineEdit(row, cue_index);
 }
 
 void MainWindow::splitSelectedLine() {

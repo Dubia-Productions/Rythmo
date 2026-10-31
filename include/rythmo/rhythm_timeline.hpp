@@ -17,6 +17,7 @@ class QMouseEvent;
 class QKeyEvent;
 class QContextMenuEvent;
 class QWheelEvent;
+class QLineEdit;
 
 namespace rythmo {
 
@@ -32,7 +33,9 @@ public:
     void setResizeHandler(std::function<void(int, int, qint64)> handler);
     void setResizeTransactionHandler(std::function<void(bool)> handler);
     void setSplitHandler(std::function<void(int)> handler);
-    void setEditHandler(std::function<void(int)> handler);
+    void setEditHandler(std::function<void(int, int)> handler);
+    void setTextEditHandler(std::function<void(int, std::size_t, std::size_t, const QString&)> handler);
+    void beginInlineEdit(int line_index, int cue_index = -1);
     void setDeleteHandler(std::function<void(int)> handler);
     void setSelection(int line_index, int track);
     void copyDisplayStateFrom(const RhythmTimelineWidget& other);
@@ -53,6 +56,7 @@ protected:
     void keyPressEvent(QKeyEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
     void contextMenuEvent(QContextMenuEvent* event) override;
+    bool eventFilter(QObject* watched, QEvent* event) override;
 
 private:
     struct CachedCue {
@@ -61,6 +65,9 @@ private:
         bool start_follows_playhead{};
         bool end_follows_playhead{};
         QStringList rows;
+        QString text;
+        std::size_t first_segment{};
+        std::size_t segment_count{};
         std::map<int, std::vector<qreal>> text_widths_by_pixel_size;
     };
     struct CachedSign {
@@ -88,6 +95,7 @@ private:
     qint64 duration_ms_{};
     qint64 playhead_ms_{};
     int selected_line_{-1};
+    int selected_cue_{-1};
     int selected_track_{};
     std::function<void(int, int)> selection_handler_;
     std::function<void(int, qint64)> insert_at_handler_;
@@ -96,7 +104,8 @@ private:
     std::function<void(qint64)> playhead_handler_;
     std::function<void(bool)> playhead_drag_handler_;
     std::function<void(int)> split_handler_;
-    std::function<void(int)> edit_handler_;
+    std::function<void(int, int)> edit_handler_;
+    std::function<void(int, std::size_t, std::size_t, const QString&)> text_edit_handler_;
     std::function<void(int)> delete_handler_;
     int resizing_line_{-1};
     int resizing_sign_{-1};
@@ -110,16 +119,23 @@ private:
     qint64 scrub_start_position_ms_{};
     qint64 visible_duration_ms_{8000};
     QFont text_font_{QStringLiteral("Montserrat")};
+    QLineEdit* inline_editor_{};
+    int editing_line_{-1};
+    int editing_cue_{-1};
+    std::size_t editing_first_segment_{};
+    std::size_t editing_segment_count_{};
 
     qint64 effectiveDuration() const;
     void rebuildSceneCache();
     qint64 positionForX(int x) const;
     int xForPosition(qint64 position_ms) const;
     int lineAtPosition(int x, int y) const;
+    std::pair<int, int> cueAtPosition(int x, int y) const;
     std::pair<int, int> edgeAtPosition(int x, int y) const;
     void adjustTimelineZoom(qreal factor);
     void panTimelineByPixels(int delta);
     void stepTimelineFrame(int direction);
+    void finishInlineEdit(bool commit);
 };
 
 } // namespace rythmo

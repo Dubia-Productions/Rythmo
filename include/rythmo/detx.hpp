@@ -143,6 +143,8 @@ public:
                                        bool whole_words = false,
                                        bool case_sensitive = false) const;
     void set_line_text(Line& line, const std::string& value);
+    void set_text_segments_text(Line& line, std::size_t first, std::size_t count,
+                                const std::string& value);
     void set_lipsync_timecode(Lipsync& sign, const Timecode& timecode);
     void split_line_at(Line& line, const Timecode& timecode);
     bool add_shot_marker(const Timecode& timecode);

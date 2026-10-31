@@ -796,7 +796,8 @@ void DetxDocument::set_line_text(Line& line, const std::string& value) {
         std::size_t cut = new_characters;
         if (i + 1 < line.text_segments.size()) {
             consumed_old += weights[i];
-            cut = old_total == 0 ? 0 : (new_characters * consumed_old + old_total / 2) / old_total;
+            cut = old_total == 0 ? 0 : static_cast<std::size_t>(std::floor(
+                static_cast<long double>(new_characters) * consumed_old / old_total + 0.5L));
             cut = std::clamp(cut, previous_cut, new_characters);
         }
         const auto chunk = value.substr(new_offsets[previous_cut], new_offsets[cut] - new_offsets[previous_cut]);
@@ -805,6 +806,70 @@ void DetxDocument::set_line_text(Line& line, const std::string& value) {
         previous_cut = cut;
     }
     line.text = value;
+}
+
+void DetxDocument::set_text_segments_text(Line& line, std::size_t first, std::size_t count,
+                                          const std::string& value) {
+    if (!line.element || count == 0 || first > line.text_segments.size() ||
+        count > line.text_segments.size() - first)
+        throw std::invalid_argument("text segment selection is invalid");
+
+    auto write_text_node = [](XmlNode& node, const std::string& text) {
+        node.content.clear();
+        std::size_t start = 0;
+        while (true) {
+            const auto newline = text.find('\n', start);
+            const auto end = newline == std::string::npos ? text.size() : newline;
+            if (end > start || node.content.empty()) node.content.emplace_back(text.substr(start, end - start));
+            if (newline == std::string::npos) break;
+            auto br = std::make_unique<XmlNode>("br");
+            node.content.emplace_back(*br);
+            node.content.back().element = std::move(br);
+            start = newline + 1;
+        }
+    };
+    const auto offsets = [](const std::string& text) {
+        std::vector<std::size_t> result{0};
+        for (std::size_t i = 0; i < text.size();) {
+            const auto lead = static_cast<unsigned char>(text[i]);
+            std::size_t width = (lead & 0x80) == 0 ? 1 : ((lead & 0xe0) == 0xc0 ? 2 :
+                ((lead & 0xf0) == 0xe0 ? 3 : ((lead & 0xf8) == 0xf0 ? 4 : 1)));
+            if (i + width > text.size()) width = 1;
+            for (std::size_t j = 1; j < width; ++j)
+                if ((static_cast<unsigned char>(text[i + j]) & 0xc0) != 0x80) { width = 1; break; }
+            i += width;
+            result.push_back(i);
+        }
+        return result;
+    };
+
+    std::vector<std::size_t> weights;
+    weights.reserve(count);
+    std::size_t old_total = 0;
+    for (std::size_t i = first; i < first + count; ++i) {
+        const auto weight = offsets(line.text_segments[i].text).size() - 1;
+        weights.push_back(weight);
+        old_total += weight;
+    }
+    const auto new_offsets = offsets(value);
+    const auto new_characters = new_offsets.size() - 1;
+    std::size_t consumed_old = 0;
+    std::size_t previous_cut = 0;
+    for (std::size_t local = 0; local < count; ++local) {
+        auto& segment = line.text_segments[first + local];
+        if (!segment.element) throw std::invalid_argument("text segment is detached from its DetX element");
+        std::size_t cut = new_characters;
+        if (local + 1 < count) {
+            consumed_old += weights[local];
+            cut = old_total == 0 ? 0 : (new_characters * consumed_old + old_total / 2) / old_total;
+            cut = std::clamp(cut, previous_cut, new_characters);
+        }
+        segment.text = value.substr(new_offsets[previous_cut], new_offsets[cut] - new_offsets[previous_cut]);
+        write_text_node(*segment.element, segment.text);
+        previous_cut = cut;
+    }
+    line.text.clear();
+    for (const auto& segment : line.text_segments) append_line_text(line.text, segment.text);
 }
 
 void DetxDocument::set_lipsync_timecode(Lipsync& sign, const Timecode& timecode) {

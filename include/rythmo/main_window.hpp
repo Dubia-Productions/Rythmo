@@ -150,7 +150,7 @@ private:
     void onCellChanged(int row, int column);
     void addLine();
     void addLineAt(int track, qint64 position_ms);
-    void editTimelineLine(int row);
+    void editTimelineLine(int row, int cue_index = -1);
     void splitSelectedLine();
     void addShotMarker();
     void toggleRhythmFullscreen();
