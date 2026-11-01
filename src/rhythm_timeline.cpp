@@ -15,6 +15,7 @@
 #include <QStringList>
 #include <QLineEdit>
 #include <QEvent>
+#include <QResizeEvent>
 
 #include <algorithm>
 #include <iterator>
@@ -71,6 +72,7 @@ void RhythmTimelineWidget::setDocument(const DetxDocument* document, Timecode vi
     duration_ms_ = std::max<qint64>(0, duration_ms);
     if (!document_ || selected_line_ >= static_cast<int>(document_->lines().size())) selected_line_ = -1;
     rebuildSceneCache();
+    positionInlineEditor();
     update();
 }
 
@@ -146,6 +148,7 @@ void RhythmTimelineWidget::rebuildSceneCache() {
 
 void RhythmTimelineWidget::setPlayhead(qint64 position_ms) {
     playhead_ms_ = std::max<qint64>(0, position_ms);
+    positionInlineEditor();
     update();
 }
 
@@ -242,34 +245,67 @@ void RhythmTimelineWidget::beginInlineEdit(int line_index, int cue_index) {
             ? positionForTimecode(line.lipsyncs.back().timecode) : start_ms + 1500;
     }
     if (end_ms <= start_ms) end_ms = start_ms + 180;
-
-    const int lane_height = std::max(1, (height() - ruler_height) / 4);
-    const int lane_y = ruler_height + std::clamp(line.track, 0, 3) * lane_height;
-    const int x1 = xForPosition(start_ms);
-    const int x2 = std::max(x1 + 8, xForPosition(end_ms));
-    const int available = std::max(80, width() - right_margin - left_margin);
-    const int editor_width = std::min(available, std::max(260, x2 - x1));
-    const int editor_x = std::clamp(x1, left_margin, std::max(left_margin, width() - right_margin - editor_width));
-    const int editor_height = std::min(34, std::max(24, lane_height - 12));
-    const int editor_y = std::clamp(lane_y + 13, lane_y + 1, std::max(lane_y + 1, lane_y + lane_height - editor_height - 1));
-
     editing_line_ = line_index;
     editing_cue_ = cue_index;
+    editing_start_ms_ = start_ms;
+    editing_end_ms_ = end_ms;
+    editing_track_ = std::clamp(line.track, 0, 3);
     inline_editor_ = new QLineEdit(this);
     inline_editor_->setObjectName(QStringLiteral("rhythmInlineEditor"));
     inline_editor_->setFont(text_font_);
     inline_editor_->setStyleSheet(QStringLiteral(
-        "QLineEdit#rhythmInlineEditor { background:#0B1118; color:#F3F7FA; border:2px solid #19B9DA;"
-        " border-radius:4px; padding:2px 7px; selection-background-color:#147FA0; }"));
+        "QLineEdit#rhythmInlineEditor { background:transparent; color:#E6EFFB; border:0; padding:0;"
+        " selection-background-color:#147FA0; }"));
+    inline_editor_->setFrame(false);
+    inline_editor_->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     inline_editor_->setText(initial);
     inline_editor_->setPlaceholderText(QStringLiteral("Saisir la réplique…"));
     inline_editor_->installEventFilter(this);
     connect(inline_editor_, &QLineEdit::editingFinished, this, [this] { finishInlineEdit(true); });
-    inline_editor_->setGeometry(editor_x, editor_y, editor_width, editor_height);
+    connect(inline_editor_, &QLineEdit::textChanged, this, [this] { positionInlineEditor(); });
+    positionInlineEditor();
     inline_editor_->show();
     inline_editor_->raise();
     inline_editor_->setFocus(Qt::OtherFocusReason);
     inline_editor_->selectAll();
+}
+
+void RhythmTimelineWidget::positionInlineEditor() {
+    if (!inline_editor_) return;
+    const int lane_height = std::max(1, (height() - ruler_height) / 4);
+    const int lane_y = ruler_height + editing_track_ * lane_height;
+    const int block_y = lane_y + 8;
+    const int block_height = std::max(18, lane_height - 16);
+    const int x1 = xForPosition(editing_start_ms_);
+    const int x2 = std::max(x1 + 8, xForPosition(editing_end_ms_));
+    const QRect block(x1, block_y, std::max(8, x2 - x1), block_height);
+    const QRect text_rect = block.adjusted(8, 14, -6, -3);
+    const QRect visible_text_rect = text_rect.intersected(
+        QRect(left_margin, lane_y, std::max(0, width() - left_margin - right_margin), lane_height));
+    if (visible_text_rect.isEmpty()) {
+        inline_editor_->hide();
+        return;
+    }
+    inline_editor_->setGeometry(visible_text_rect);
+    int row_count = 1;
+    if (editing_line_ >= 0 && editing_line_ < static_cast<int>(cached_lines_.size()) &&
+        editing_cue_ >= 0 && editing_cue_ < static_cast<int>(cached_lines_[static_cast<std::size_t>(editing_line_)].cues.size())) {
+        row_count = std::max(1, static_cast<int>(cached_lines_[static_cast<std::size_t>(editing_line_)]
+            .cues[static_cast<std::size_t>(editing_cue_)].rows.size()));
+    }
+    const qreal row_height = text_rect.height() / static_cast<qreal>(row_count);
+    const int max_pixel_size = std::max(8, qFloor(row_height * 0.9));
+    const int pixel_size = std::clamp(qRound(row_height * 0.78), 8, max_pixel_size);
+    QFont edit_font = text_font_;
+    edit_font.setBold(true);
+    edit_font.setHintingPreference(QFont::PreferFullHinting);
+    edit_font.setPixelSize(pixel_size);
+    const qreal natural_width = QFontMetricsF(edit_font).horizontalAdvance(inline_editor_->text());
+    if (natural_width > 0.0 && text_rect.width() > 0)
+        edit_font.setStretch(std::clamp(qRound(text_rect.width() * 100.0 / natural_width), 1, 4000));
+    if (inline_editor_->font() != edit_font) inline_editor_->setFont(edit_font);
+    inline_editor_->setTextMargins(0, 0, 0, 0);
+    inline_editor_->show();
 }
 
 void RhythmTimelineWidget::finishInlineEdit(bool commit) {
@@ -285,6 +321,8 @@ void RhythmTimelineWidget::finishInlineEdit(bool commit) {
     editing_cue_ = -1;
     editing_first_segment_ = 0;
     editing_segment_count_ = 0;
+    editing_start_ms_ = 0;
+    editing_end_ms_ = 0;
     editor->deleteLater();
     if (commit && text_edit_handler_ && line_index >= 0) text_edit_handler_(line_index, first, count, value);
     update();
@@ -303,6 +341,11 @@ bool RhythmTimelineWidget::eventFilter(QObject* watched, QEvent* event) {
         }
     }
     return QWidget::eventFilter(watched, event);
+}
+
+void RhythmTimelineWidget::resizeEvent(QResizeEvent* event) {
+    QWidget::resizeEvent(event);
+    positionInlineEditor();
 }
 
 void RhythmTimelineWidget::setDeleteHandler(std::function<void(int)> handler) {
@@ -438,7 +481,8 @@ void RhythmTimelineWidget::paintEvent(QPaintEvent*) {
             painter.save();
             painter.setClipRect(QRect(left_margin, lane_y, plot_width, lane_height));
 
-            for (auto& cue : line.cues) {
+            for (int cue_index = 0; cue_index < static_cast<int>(line.cues.size()); ++cue_index) {
+                auto& cue = line.cues[static_cast<std::size_t>(cue_index)];
                 const qint64 start_ms = cue.start_follows_playhead ? playhead_ms_ : cue.start_ms;
                 qint64 end_ms = cue.end_follows_playhead ? start_ms + 1500 : cue.end_ms;
                 if (end_ms <= start_ms) end_ms = start_ms + 180;
@@ -470,7 +514,8 @@ void RhythmTimelineWidget::paintEvent(QPaintEvent*) {
                 QFont text_font = text_font_;
                 text_font.setBold(true);
                 text_font.setHintingPreference(QFont::PreferFullHinting);
-                if (!cue.rows.isEmpty() && text_rect.width() > 0 && text_rect.height() > 0) {
+                if ((editing_line_ != line_index || editing_cue_ != cue_index) &&
+                    !cue.rows.isEmpty() && text_rect.width() > 0 && text_rect.height() > 0) {
                     // A band block represents one time interval. Never wrap its words:
                     // wrapping makes a short interval look like overlapping text.
                     const int row_count = std::max(1, static_cast<int>(cue.rows.size()));

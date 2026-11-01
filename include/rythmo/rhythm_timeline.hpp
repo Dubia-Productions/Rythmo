@@ -17,6 +17,7 @@ class QMouseEvent;
 class QKeyEvent;
 class QContextMenuEvent;
 class QWheelEvent;
+class QResizeEvent;
 class QLineEdit;
 
 namespace rythmo {
@@ -56,6 +57,7 @@ protected:
     void keyPressEvent(QKeyEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
     void contextMenuEvent(QContextMenuEvent* event) override;
+    void resizeEvent(QResizeEvent* event) override;
     bool eventFilter(QObject* watched, QEvent* event) override;
 
 private:
@@ -124,6 +126,9 @@ private:
     int editing_cue_{-1};
     std::size_t editing_first_segment_{};
     std::size_t editing_segment_count_{};
+    qint64 editing_start_ms_{};
+    qint64 editing_end_ms_{};
+    int editing_track_{};
 
     qint64 effectiveDuration() const;
     void rebuildSceneCache();
@@ -135,6 +140,7 @@ private:
     void adjustTimelineZoom(qreal factor);
     void panTimelineByPixels(int delta);
     void stepTimelineFrame(int direction);
+    void positionInlineEditor();
     void finishInlineEdit(bool commit);
 };
 
