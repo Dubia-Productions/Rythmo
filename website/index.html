@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rythmo — Studio de bande rythmo et séparation vocale</title>
+  <meta name="description" content="Rythmo by Dubia Productions : logiciel local de création de bande rythmo DetX, export 4K 60 i/s et séparation vocale RoFormer sur Windows, macOS et Linux.">
+  <link rel="icon" type="image/png" href="assets/rythmo-logo.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="index.html">
+        <img src="assets/rythmo-logo.png" alt="Rythmo">
+        <span>Rythmo</span>
+        <span class="brand-sub">by Dubia Productions</span>
+      </a>
+
+      <nav class="nav-links" aria-label="Navigation principale">
+        <a class="nav-link is-active" href="index.html">Aperçu</a>
+        <a class="nav-link" href="#fonctionnalites">Fonctionnalités</a>
+        <a class="nav-link" href="#raccourcis">Raccourcis</a>
+        <a class="nav-link" href="download.html">Télécharger</a>
+      </nav>
+
+      <div class="header-actions">
+        <a class="btn btn-ghost btn-sm" href="https://github.com/Dubia-Productions/Rythmo" target="_blank" rel="noopener">GitHub</a>
+        <a class="btn btn-primary btn-sm" href="download.html">Télécharger</a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="container">
+        <div class="hero-top">
+          <div class="eyebrow">
+            <span class="eyebrow-dot"></span>
+            <span data-rythmo-version>v0.4.8</span>
+            <span>· Windows, macOS &amp; Linux</span>
+          </div>
+          <h1>La bande rythmo et la séparation vocale, sans bruit.</h1>
+          <p class="hero-lead">
+            Un studio de postproduction sobre et local. Synchronisez vos projets DetX sur quatre pistes, exportez jusqu’en 4K 60 i/s et séparez les voix hors ligne.
+          </p>
+          <div class="hero-cta">
+            <a class="btn btn-primary btn-lg" data-recommended-btn data-asset="windows-x64-setup" href="download.html">
+              Télécharger Rythmo
+            </a>
+            <a class="btn btn-lg" href="download.html">
+              Toutes les plateformes
+            </a>
+          </div>
+          <div class="hero-meta" data-recommended-meta>
+            Traitement 100 % local · FFmpeg inclus · Aucun compte requis
+          </div>
+        </div>
+
+        <!-- Studio Window Preview -->
+        <div class="studio-frame" aria-label="Aperçu de l'interface Rythmo">
+          <div class="studio-titlebar">
+            <div class="window-dots" aria-hidden="true">
+              <span></span><span></span><span></span>
+            </div>
+            <div class="studio-tabs" role="tablist">
+              <button class="studio-tab is-active" type="button" data-studio-tab="rythmo">Bande Rythmo</button>
+              <button class="studio-tab" type="button" data-studio-tab="separation">Séparation vocale</button>
+            </div>
+            <span>scene_04.detx</span>
+          </div>
+
+          <div class="studio-body">
+            <!-- Panel 1: Bande Rythmo -->
+            <div class="studio-panel is-active" data-studio-panel="rythmo">
+              <div class="studio-top-grid">
+                <div class="video-viewport">
+                  <div class="video-hud-top">
+                    <span class="video-badge">1920 × 1080 · 24 i/s</span>
+                    <span>Plein écran : F11</span>
+                  </div>
+                  <div class="video-scene-label">Moniteur vidéo</div>
+                  <div class="video-hud-bottom">
+                    <button class="transport-btn" type="button" data-preview-play>Lecture</button>
+                    <span class="timecode" data-preview-timecode>00:02:18:09</span>
+                    <span style="font-size: 11px; color: #6E6E76;">Espace</span>
+                  </div>
+                </div>
+
+                <div class="inspector-pane">
+                  <div>
+                    <div class="pane-heading">Rôles &amp; pistes</div>
+                    <div class="role-list">
+                      <div class="role-item">
+                        <span class="role-name"><span class="role-swatch" style="background: #60A5FA;"></span>Claire</span>
+                        <span class="role-count">14 répliques</span>
+                      </div>
+                      <div class="role-item">
+                        <span class="role-name"><span class="role-swatch" style="background: #34D399;"></span>Marc</span>
+                        <span class="role-count">11 répliques</span>
+                      </div>
+                      <div class="role-item">
+                        <span class="role-name"><span class="role-swatch" style="background: #F472B6;"></span>Elena</span>
+                        <span class="role-count">8 répliques</span>
+                      </div>
+                      <div class="role-item">
+                        <span class="role-name"><span class="role-swatch" style="background: #FBBF24;"></span>Narrateur</span>
+                        <span class="role-count">4 répliques</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="export-summary">
+                    <span>Export prêt · 4K 60 i/s</span>
+                    <a class="btn btn-sm" href="download.html">Exporter…</a>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rythmo-band">
+                <div class="band-ruler">
+                  <span>00:02:14:00</span>
+                  <span>00:02:16:00</span>
+                  <span>00:02:18:00</span>
+                  <span>00:02:20:00</span>
+                  <span>00:02:22:00</span>
+                </div>
+                <div class="band-tracks">
+                  <div class="band-cursor" data-preview-cursor></div>
+                  <div class="cut-marker" style="left: 28%;"></div>
+                  <div class="cut-marker" style="left: 69%;"></div>
+
+                  <div class="track-row">
+                    <div class="cue cue-blue" style="left: 8%; width: 22%;">On aurait dû partir plus tôt.</div>
+                    <div class="cue cue-blue" style="left: 46%; width: 26%;">Personne n’a vérifié les niveaux ?</div>
+                  </div>
+                  <div class="track-row">
+                    <div class="cue cue-green" style="left: 24%; width: 24%;">La piste deux est déjà calée.</div>
+                    <div class="cue cue-green" style="left: 71%; width: 20%;">On reprend au plan suivant.</div>
+                  </div>
+                  <div class="track-row">
+                    <div class="cue cue-pink" style="left: 34%; width: 18%;">Attends le changement de plan.</div>
+                  </div>
+                  <div class="track-row">
+                    <div class="cue cue-amber" style="left: 56%; width: 28%;">[Ambiance extérieure — fondu]</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Panel 2: Séparation vocale -->
+            <div class="studio-panel" data-studio-panel="separation">
+              <div class="separation-mockup">
+                <div>
+                  <div class="pane-heading">Profils RoFormer locaux</div>
+                  <div class="profile-card">
+                    <div class="profile-title">Faible (Rapide et léger)</div>
+                    <div class="profile-desc">Mel-RoFormer-Small-Unwa · Exécution rapide sur CPU/GPU</div>
+                  </div>
+                  <div class="profile-card is-selected">
+                    <div class="profile-title">Moyen (Équilibré)</div>
+                    <div class="profile-desc">BS-RoFormer-Viperx-1297 · Précision studio recommandée</div>
+                  </div>
+                  <div class="profile-card">
+                    <div class="profile-title">Élevé / Modèle personnel</div>
+                    <div class="profile-desc">Mel-RoFormer-Unwa-v1e-plus ou modèle RoFormer importé</div>
+                  </div>
+                </div>
+
+                <div>
+                  <div class="pane-heading">Pistes générées sur votre appareil</div>
+                  <div class="stem-output">
+                    <div class="stem-header">
+                      <span>scene_04_vocals.wav</span>
+                      <span style="color: #6E6E76;">44,1 kHz</span>
+                    </div>
+                    <div class="waveform-bars" aria-hidden="true">
+                      <span style="height: 30%;"></span><span style="height: 65%;"></span><span style="height: 90%;"></span>
+                      <span style="height: 45%;"></span><span style="height: 80%;"></span><span style="height: 55%;"></span>
+                      <span style="height: 25%;"></span><span style="height: 75%;"></span><span style="height: 95%;"></span>
+                      <span style="height: 60%;"></span><span style="height: 40%;"></span><span style="height: 70%;"></span>
+                      <span style="height: 85%;"></span><span style="height: 35%;"></span><span style="height: 50%;"></span>
+                    </div>
+                  </div>
+                  <div class="stem-output">
+                    <div class="stem-header">
+                      <span>scene_04_instrumental.wav</span>
+                      <span style="color: #6E6E76;">Musique &amp; effets</span>
+                    </div>
+                    <div class="waveform-bars" aria-hidden="true">
+                      <span style="height: 45%;"></span><span style="height: 40%;"></span><span style="height: 55%;"></span>
+                      <span style="height: 50%;"></span><span style="height: 35%;"></span><span style="height: 60%;"></span>
+                      <span style="height: 48%;"></span><span style="height: 42%;"></span><span style="height: 38%;"></span>
+                      <span style="height: 52%;"></span><span style="height: 58%;"></span><span style="height: 44%;"></span>
+                      <span style="height: 40%;"></span><span style="height: 46%;"></span><span style="height: 36%;"></span>
+                    </div>
+                  </div>
+                  <p style="margin: 12px 0 0; font-size: 12px; color: #6E6E76;">
+                    Les modèles se téléchargent uniquement à la première utilisation du profil choisi.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="fonctionnalites" class="section">
+      <div class="container">
+        <div class="section-header">
+          <div class="section-kicker">Fonctionnalités</div>
+          <h2>Conçu pour le rythme du studio.</h2>
+          <p class="section-desc">
+            Chaque outil va à l’essentiel : précision à l’image près, exports maîtrisés et traitement local sans dépendance cloud.
+          </p>
+        </div>
+
+        <div class="grid-3">
+          <article class="card">
+            <div class="card-icon" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="14" x2="21" y2="14"/></svg>
+            </div>
+            <h3>Projets DetX &amp; 4 pistes</h3>
+            <p>Créez, ouvrez et enregistrez des projets DetX. Synchronisez répliques, rôles et changements de plan sur quatre pistes.</p>
+          </article>
+
+          <article class="card">
+            <div class="card-icon" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            </div>
+            <h3>Lecture &amp; plein écran</h3>
+            <p>Visualisez la bande rythmo directement dans l’éditeur ou basculez en plein écran (F11) avec navigation à l’image près.</p>
+          </article>
+
+          <article class="card">
+            <div class="card-icon" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </div>
+            <h3>Export jusqu’en 4K 60 i/s</h3>
+            <p>Exportez de 720p à 4K jusqu’à 60 images/s avec les encodeurs de votre appareil et effets visuels activables. FFmpeg est inclus.</p>
+          </article>
+
+          <article class="card">
+            <div class="card-icon" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
+            </div>
+            <h3>Séparation vocale locale</h3>
+            <p>Isolez voix et musique/effets localement grâce à trois profils RoFormer ou importez votre propre modèle.</p>
+          </article>
+
+          <article class="card">
+            <div class="card-icon" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </div>
+            <h3>Confidentialité absolue</h3>
+            <p>Vos projets, vidéos et pistes audio ne quittent jamais votre machine. Aucun envoi vers un serveur externe.</p>
+          </article>
+
+          <article class="card">
+            <div class="card-icon" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            </div>
+            <h3>Mises à jour maîtrisées</h3>
+            <p>Vérification facultative uniquement lorsqu’une connexion est détectée, avec contrôle d’intégrité du paquet avant redémarrage.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="raccourcis" class="section">
+      <div class="container">
+        <div class="section-header">
+          <div class="section-kicker">Ergonomie</div>
+          <h2>Raccourcis et gestes essentiels.</h2>
+          <p class="section-desc">
+            Pensé pour travailler au clavier et au trackpad sans quitter la bande des yeux.
+          </p>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Action</th>
+                <th>Touche ou geste</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Lecture / pause</td>
+                <td><kbd>Espace</kbd></td>
+              </tr>
+              <tr>
+                <td>Plein écran / quitter</td>
+                <td><kbd>F11</kbd> / <kbd>Échap</kbd></td>
+              </tr>
+              <tr>
+                <td>Ajouter une réplique à la position de lecture</td>
+                <td><kbd>Entrée</kbd> sur la bande</td>
+              </tr>
+              <tr>
+                <td>Modifier la réplique sélectionnée</td>
+                <td><kbd>F2</kbd> ou double-clic</td>
+              </tr>
+              <tr>
+                <td>Scinder une réplique</td>
+                <td><kbd>Ctrl+K</kbd> (<kbd>⌘+K</kbd> sur macOS)</td>
+              </tr>
+              <tr>
+                <td>Ajouter un changement de plan</td>
+                <td><kbd>Ctrl+M</kbd> (<kbd>⌘+M</kbd> sur macOS)</td>
+              </tr>
+              <tr>
+                <td>Avancer ou reculer d’une image</td>
+                <td><kbd>Alt+Flèches</kbd> ou <kbd>Maj+Flèches</kbd></td>
+              </tr>
+              <tr>
+                <td>Zoomer / naviguer sur la bande</td>
+                <td><kbd>+</kbd> <kbd>-</kbd>, molette ou défilement à deux doigts</td>
+              </tr>
+              <tr>
+                <td>Annuler / rétablir</td>
+                <td><kbd>Ctrl+Z</kbd> / <kbd>Ctrl+Maj+Z</kbd> (<kbd>⌘+Z</kbd> / <kbd>⌘+Maj+Z</kbd>)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" style="border-bottom: 0;">
+      <div class="container">
+        <div class="recommended-box" style="margin-top: 0;">
+          <div class="recommended-info">
+            <div class="section-kicker" style="margin-bottom: 4px;">Disponible gratuitement</div>
+            <h2>Prêt à installer Rythmo ?</h2>
+            <div class="recommended-meta">
+              Windows (x64 &amp; ARM64), macOS (Apple Silicon &amp; Intel) et Linux (x64 &amp; ARM64).
+            </div>
+          </div>
+          <div class="recommended-actions">
+            <a class="btn btn-primary btn-lg" href="download.html">Accéder aux téléchargements</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <span>Rythmo by Dubia Productions · <span data-rythmo-version>v0.4.8</span></span>
+      <div class="footer-links">
+        <a href="download.html">Téléchargements</a>
+        <a href="https://github.com/Dubia-Productions/Rythmo/releases" target="_blank" rel="noopener">Notes de version</a>
+        <a href="https://github.com/Dubia-Productions/Rythmo" target="_blank" rel="noopener">Code source</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

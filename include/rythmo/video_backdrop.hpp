@@ -10,6 +10,7 @@
 #include <QtMath>
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 
 namespace rythmo {
 inline QSize fullscreenBackdropSize(QSize canvas, qreal device_pixel_ratio = 1.0) {
@@ -63,46 +64,69 @@ inline QImage fullscreenVideoOverlay(QSize canvas, QSize source, bool include_sh
     return overlay;
 }
 
-// Three sliding box passes approximate a Gaussian. Cost is independent of
-// radius; RGB32 avoids alpha/premultiplication ambiguity for the opaque backdrop.
+// Three sliding box passes approximate a Gaussian. Uses two-stage decimation +
+// cache-friendly transpose + fixed-point reciprocal so low-end x86/ARM CPUs avoid
+// full-4K SmoothTransformation and per-pixel integer division.
 inline QImage softVideoBackdrop(const QImage& source, QSize target) {
     if (source.isNull() || target.isEmpty()) return {};
-    QImage scaled = source.scaled(target, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
-    QImage image = scaled.copy((scaled.width()-target.width())/2,
-                              (scaled.height()-target.height())/2,
-                              target.width(), target.height()).convertToFormat(QImage::Format_RGB32);
-    QImage scratch(target, QImage::Format_RGB32);
-    if (image.isNull() || scratch.isNull()) return {};
-    const int radius = fullscreenBackdropBlurRadius(target.width());
-    const int divisor = radius*2+1;
-    for (int pass=0; pass<3; ++pass) {
-        for (int axis=0; axis<2; ++axis) {
-            const int length = axis == 0 ? image.width() : image.height();
-            const int lines = axis == 0 ? image.height() : image.width();
-            const auto* input = reinterpret_cast<const QRgb*>(image.constBits());
-            auto* output = reinterpret_cast<QRgb*>(scratch.bits());
-            const int stride = image.bytesPerLine()/4;
-            const int out_stride = scratch.bytesPerLine()/4;
-            for (int line=0; line<lines; ++line) {
-                const int base = axis == 0 ? line*stride : line;
-                const int step = axis == 0 ? 1 : stride;
-                const int out_base = axis == 0 ? line*out_stride : line;
-                const int out_step = axis == 0 ? 1 : out_stride;
-                int red=0, green=0, blue=0;
-                for (int k=-radius; k<=radius; ++k) {
-                    const QRgb pixel = input[base + std::clamp(k,0,length-1)*step];
-                    red+=qRed(pixel); green+=qGreen(pixel); blue+=qBlue(pixel);
-                }
-                for (int i=0; i<length; ++i) {
-                    output[out_base+i*out_step] = qRgb((red+divisor/2)/divisor,
-                        (green+divisor/2)/divisor, (blue+divisor/2)/divisor);
-                    const QRgb leave = input[base+std::clamp(i-radius,0,length-1)*step];
-                    const QRgb enter = input[base+std::clamp(i+radius+1,0,length-1)*step];
-                    red+=qRed(enter)-qRed(leave); green+=qGreen(enter)-qGreen(leave); blue+=qBlue(enter)-qBlue(leave);
-                }
-            }
-            image.swap(scratch);
+    QImage image;
+    if (source.size() == target && source.format() == QImage::Format_RGB32) {
+        image = source.copy();
+    } else {
+        QImage pre_scaled = source;
+        if (source.width() > target.width() * 3 || source.height() > target.height() * 3) {
+            pre_scaled = source.scaled(target * 2, Qt::KeepAspectRatioByExpanding, Qt::FastTransformation);
         }
+        QImage scaled = pre_scaled.scaled(target, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
+        image = scaled.copy((scaled.width() - target.width()) / 2,
+                            (scaled.height() - target.height()) / 2,
+                            target.width(), target.height()).convertToFormat(QImage::Format_RGB32);
+    }
+    if (image.isNull()) return {};
+
+    const int w = image.width();
+    const int h = image.height();
+    QImage transposed(h, w, QImage::Format_RGB32);
+    if (transposed.isNull()) return {};
+
+    const int radius = fullscreenBackdropBlurRadius(w);
+    const std::uint32_t divisor = static_cast<std::uint32_t>(radius * 2 + 1);
+    const std::uint32_t inv_mul = ((1u << 22) + divisor - 1u) / divisor;
+    const std::uint32_t round_bias = divisor / 2u;
+
+    // Blur horizontally AND transpose into output so BOTH axes read sequentially in L1 cache!
+    auto blur_and_transpose = [radius, inv_mul, round_bias](const QImage& src, QImage& dst) {
+        const int length = src.width();
+        const int lines = src.height();
+        const int dst_stride = dst.bytesPerLine() / 4;
+        auto* dst_bits = reinterpret_cast<QRgb*>(dst.bits());
+        for (int y = 0; y < lines; ++y) {
+            const auto* row = reinterpret_cast<const QRgb*>(src.constScanLine(y));
+            std::uint32_t r = 0, g = 0, b = 0;
+            for (int k = -radius; k <= radius; ++k) {
+                const QRgb px = row[std::clamp(k, 0, length - 1)];
+                r += static_cast<std::uint32_t>(qRed(px));
+                g += static_cast<std::uint32_t>(qGreen(px));
+                b += static_cast<std::uint32_t>(qBlue(px));
+            }
+            QRgb* out_col = dst_bits + y;
+            for (int x = 0; x < length; ++x) {
+                const int rr = std::min(255, static_cast<int>(((r + round_bias) * inv_mul) >> 22));
+                const int gg = std::min(255, static_cast<int>(((g + round_bias) * inv_mul) >> 22));
+                const int bb = std::min(255, static_cast<int>(((b + round_bias) * inv_mul) >> 22));
+                out_col[x * dst_stride] = qRgb(rr, gg, bb);
+                const QRgb leave = row[std::clamp(x - radius, 0, length - 1)];
+                const QRgb enter = row[std::clamp(x + radius + 1, 0, length - 1)];
+                r = r + static_cast<std::uint32_t>(qRed(enter)) - static_cast<std::uint32_t>(qRed(leave));
+                g = g + static_cast<std::uint32_t>(qGreen(enter)) - static_cast<std::uint32_t>(qGreen(leave));
+                b = b + static_cast<std::uint32_t>(qBlue(enter)) - static_cast<std::uint32_t>(qBlue(leave));
+            }
+        }
+    };
+
+    for (int pass = 0; pass < 3; ++pass) {
+        blur_and_transpose(image, transposed);
+        blur_and_transpose(transposed, image);
     }
     return image;
 }

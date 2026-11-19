@@ -58,7 +58,7 @@ inline QStringList videoExportCodecArguments(const QString& encoder, int width =
         const qint64 reference_kbps = encoder.startsWith(QStringLiteral("hevc_")) ? 12000 : 22000;
         const qint64 bitrate_kbps = std::max<qint64>(6000,
             (reference_kbps * output_pixels + reference_pixels / 2) / reference_pixels);
-        args << "-allow_sw" << "0" << "-realtime" << "1"
+        args << "-allow_sw" << "0"
              << "-b:v" << QStringLiteral("%1k").arg(bitrate_kbps);
     }
     return args;

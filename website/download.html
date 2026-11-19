@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Télécharger Rythmo — Windows, macOS et Linux</title>
+  <meta name="description" content="Téléchargez Rythmo by Dubia Productions pour Windows (x64, ARM64), macOS (Apple Silicon, Intel) et Linux (x64, ARM64).">
+  <link rel="icon" type="image/png" href="assets/rythmo-logo.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="index.html">
+        <img src="assets/rythmo-logo.png" alt="Rythmo">
+        <span>Rythmo</span>
+        <span class="brand-sub">by Dubia Productions</span>
+      </a>
+
+      <nav class="nav-links" aria-label="Navigation principale">
+        <a class="nav-link" href="index.html">Aperçu</a>
+        <a class="nav-link" href="index.html#fonctionnalites">Fonctionnalités</a>
+        <a class="nav-link" href="index.html#raccourcis">Raccourcis</a>
+        <a class="nav-link is-active" href="download.html">Télécharger</a>
+      </nav>
+
+      <div class="header-actions">
+        <a class="btn btn-ghost btn-sm" href="https://github.com/Dubia-Productions/Rythmo" target="_blank" rel="noopener">GitHub</a>
+        <a class="btn btn-primary btn-sm" data-recommended-btn data-asset="windows-x64-setup" href="#plateformes">Télécharger</a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="download-hero">
+      <div class="container">
+        <div class="eyebrow">
+          <span class="eyebrow-dot"></span>
+          <span>Dernière version : <strong data-rythmo-version style="color: #EDEDEF;">v0.4.8</strong></span>
+        </div>
+        <h1>Télécharger Rythmo.</h1>
+        <p class="hero-lead" style="margin: 0;">
+          Paquets autonomes avec FFmpeg intégré. Sélectionnez votre système ou utilisez l’installateur recommandé ci-dessous.
+        </p>
+
+        <div class="recommended-box">
+          <div class="recommended-info">
+            <div class="section-kicker" style="margin-bottom: 4px;">Recommandé pour votre appareil</div>
+            <h2 data-recommended-title>Installateur Windows (x64)</h2>
+            <div class="recommended-meta" data-recommended-meta>
+              Version 0.4.8 · FFmpeg inclus · Exécution 100 % locale
+            </div>
+          </div>
+          <div class="recommended-actions">
+            <a class="btn btn-primary btn-lg" data-recommended-btn data-asset="windows-x64-setup" href="https://github.com/Dubia-Productions/Rythmo/releases/latest">
+              Télécharger maintenant
+            </a>
+            <a class="btn btn-lg" href="https://github.com/Dubia-Productions/Rythmo/releases/latest" target="_blank" rel="noopener">
+              Voir sur GitHub
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="plateformes" class="section">
+      <div class="container">
+        <div class="section-header">
+          <div class="section-kicker">Toutes les plateformes</div>
+          <h2>Six cibles natives, sans compromis.</h2>
+          <p class="section-desc">
+            Chaque version est compilée nativement pour son architecture avec Qt 6 et FFmpeg intégrés.
+          </p>
+        </div>
+
+        <div class="grid-3">
+          <!-- Windows -->
+          <article class="platform-card" data-platform-card="windows">
+            <div>
+              <div class="platform-head">
+                <h3 class="platform-name">Windows</h3>
+                <span class="platform-badge" data-detected-badge>x64 &amp; ARM64</span>
+              </div>
+              <p class="platform-note">Installateur standard (.exe) ou archive autonome portable (.zip).</p>
+            </div>
+
+            <div class="download-list">
+              <div class="download-row" data-download-row>
+                <div>
+                  <div class="download-row-label">Windows x64 — Installateur</div>
+                  <div class="download-row-sub">.exe <span data-asset-size></span></div>
+                </div>
+                <a class="btn btn-sm" data-asset="windows-x64-setup" href="#">Télécharger</a>
+              </div>
+
+              <div class="download-row" data-download-row>
+                <div>
+                  <div class="download-row-label">Windows x64 — Portable</div>
+                  <div class="download-row-sub">.zip <span data-asset-size></span></div>
+                </div>
+                <a class="btn btn-sm" data-asset="windows-x64-portable" href="#">Télécharger</a>
+              </div>
+
+              <div class="download-row" data-download-row>
+                <div>
+                  <div class="download-row-label">Windows ARM64 — Installateur</div>
+                  <div class="download-row-sub">.exe <span data-asset-size></span></div>
+                </div>
+                <a class="btn btn-sm" data-asset="windows-arm64-setup" href="#">Télécharger</a>
+              </div>
+
+              <div class="download-row" data-download-row>
+                <div>
+                  <div class="download-row-label">Windows ARM64 — Portable</div>
+                  <div class="download-row-sub">.zip <span data-asset-size></span></div>
+                </div>
+                <a class="btn btn-sm" data-asset="windows-arm64-portable" href="#">Télécharger</a>
+              </div>
+            </div>
+          </article>
+
+          <!-- macOS -->
+          <article class="platform-card" data-platform-card="macos">
+            <div>
+              <div class="platform-head">
+                <h3 class="platform-name">macOS</h3>
+                <span class="platform-badge" data-detected-badge>macOS 12+</span>
+              </div>
+              <p class="platform-note">Archive ZIP contenant directement <code>Rythmo.app</code>. Requiert macOS 12 Monterey ou ultérieur.</p>
+            </div>
+
+            <div class="download-list">
+              <div class="download-row" data-download-row>
+                <div>
+                  <div class="download-row-label">Apple Silicon (M1–M4)</div>
+                  <div class="download-row-sub">.zip · arm64 <span data-asset-size></span></div>
+                </div>
+                <a class="btn btn-sm" data-asset="macos-arm64" href="#">Télécharger</a>
+              </div>
+
+              <div class="download-row" data-download-row>
+                <div>
+                  <div class="download-row-label">Mac Intel</div>
+                  <div class="download-row-sub">.zip · x64 <span data-asset-size></span></div>
+                </div>
+                <a class="btn btn-sm" data-asset="macos-x64" href="#">Télécharger</a>
+              </div>
+            </div>
+          </article>
+
+          <!-- Linux -->
+          <article class="platform-card" data-platform-card="linux">
+            <div>
+              <div class="platform-head">
+                <h3 class="platform-name">Linux</h3>
+                <span class="platform-badge" data-detected-badge>Portable</span>
+              </div>
+              <p class="platform-note">Archive portable prête à l’emploi (.tar.gz) incluant le runtime et FFmpeg.</p>
+            </div>
+
+            <div class="download-list">
+              <div class="download-row" data-download-row>
+                <div>
+                  <div class="download-row-label">Linux x64</div>
+                  <div class="download-row-sub">.tar.gz <span data-asset-size></span></div>
+                </div>
+                <a class="btn btn-sm" data-asset="linux-x64" href="#">Télécharger</a>
+              </div>
+
+              <div class="download-row" data-download-row>
+                <div>
+                  <div class="download-row-label">Linux ARM64</div>
+                  <div class="download-row-sub">.tar.gz <span data-asset-size></span></div>
+                </div>
+                <a class="btn btn-sm" data-asset="linux-arm64" href="#">Télécharger</a>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <div class="notice-box" style="margin-top: 24px;">
+          <strong>Compatibilité &amp; modèles IA :</strong>
+          FFmpeg est inclus dans tous les paquets. Les modèles RoFormer de séparation vocale se téléchargent uniquement lors de la première utilisation d’un profil. La version macOS cible au minimum <strong>macOS 12 (Monterey)</strong> sur Mac Apple Silicon et Intel.
+        </div>
+      </div>
+    </section>
+
+    <section class="section" style="border-bottom: 0;">
+      <div class="container">
+        <div class="section-header">
+          <div class="section-kicker">Démarrage rapide</div>
+          <h2>Opérationnel en quatre étapes.</h2>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <h3>1. Ouvrir Bande Rythmo</h3>
+            <p>Créez un nouveau projet ou ouvrez directement un fichier <code>.detx</code> existant depuis l’accueil.</p>
+          </div>
+          <div class="card">
+            <h3>2. Synchroniser la scène</h3>
+            <p>Choisissez votre vidéo source, puis ajoutez vos rôles, répliques et changements de plan sur les quatre pistes.</p>
+          </div>
+          <div class="card">
+            <h3>3. Exporter en haute définition</h3>
+            <p>Cliquez sur <strong>Exporter</strong> pour choisir la résolution (720p à 4K), la cadence jusqu’à 60 i/s, l’encodeur et les effets visuels.</p>
+          </div>
+          <div class="card">
+            <h3>4. Séparer les voix localement</h3>
+            <p>Ouvrez <strong>Séparation de voix</strong>, choisissez un profil RoFormer et générez vos pistes voix et musique/effets sur votre appareil.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <span>Rythmo by Dubia Productions · <span data-rythmo-version>v0.4.8</span></span>
+      <div class="footer-links">
+        <a href="index.html">Aperçu</a>
+        <a href="https://github.com/Dubia-Productions/Rythmo/releases" target="_blank" rel="noopener">Notes de version</a>
+        <a href="https://github.com/Dubia-Productions/Rythmo" target="_blank" rel="noopener">Code source</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

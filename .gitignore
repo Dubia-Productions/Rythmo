@@ -2,7 +2,9 @@
 /build/
 /dist/
 /out/
+/package/
 /cmake-build-*/
+.DS_Store
 
 # Downloaded model weights and runtime environments
 /checkpoints/

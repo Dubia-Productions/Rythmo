@@ -176,9 +176,7 @@ std::unique_ptr<XmlNode> parse_xml(const std::string& xml) {
     return std::move(state.root);
 }
 
-std::string escape_xml(const std::string& value, bool attribute) {
-    std::string out;
-    out.reserve(value.size());
+void append_escaped_xml(std::string& out, const std::string& value, bool attribute) {
     for (char c : value) {
         switch (c) {
         case '&': out += "&amp;"; break;
@@ -191,7 +189,6 @@ std::string escape_xml(const std::string& value, bool attribute) {
         default: out += c; break;
         }
     }
-    return out;
 }
 
 void serialize_node(const XmlNode& node, std::string& out, bool pretty, int depth) {
@@ -207,7 +204,7 @@ void serialize_node(const XmlNode& node, std::string& out, bool pretty, int dept
     if (pretty && element_only) out.append(static_cast<std::size_t>(depth * 2), ' ');
     out += '<'; out += node.name;
     for (const auto& attr : node.attributes) {
-        out += ' '; out += attr.first; out += "=\""; out += escape_xml(attr.second, true); out += '"';
+        out += ' '; out += attr.first; out += "=\""; append_escaped_xml(out, attr.second, true); out += '"';
     }
     if (node.content.empty()) {
         out += "/>";
@@ -218,7 +215,7 @@ void serialize_node(const XmlNode& node, std::string& out, bool pretty, int dept
     for (const auto& part : node.content) {
         switch (part.kind) {
         case XmlPart::Kind::Text:
-            out += escape_xml(part.data, false);
+            append_escaped_xml(out, part.data, false);
             break;
         case XmlPart::Kind::Element:
             serialize_node(*part.element, out, pretty && element_only, depth + (element_only ? 1 : 0));
@@ -238,7 +235,9 @@ void serialize_node(const XmlNode& node, std::string& out, bool pretty, int dept
 }
 
 std::string serialize_xml(const XmlNode& root, bool pretty) {
-    std::string out = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
+    std::string out;
+    out.reserve(4096 + root.content.size() * 192);
+    out += "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
     serialize_node(root, out, pretty, 0);
     if (!pretty) out += '\n';
     return out;
@@ -480,19 +479,50 @@ std::vector<const XmlNode*> XmlNode::children(const std::string& child_name) con
     return result;
 }
 XmlNode* XmlNode::first_child(const std::string& child_name) {
-    auto nodes = children(child_name); return nodes.empty() ? nullptr : nodes.front();
+    const std::string lowered = lower_ascii(child_name);
+    for (auto& part : content) {
+        if (part.kind == XmlPart::Kind::Element &&
+            (lowered.empty() || local_name(part.element->name) == lowered)) {
+            return part.element.get();
+        }
+    }
+    return nullptr;
 }
 const XmlNode* XmlNode::first_child(const std::string& child_name) const {
-    auto nodes = children(child_name); return nodes.empty() ? nullptr : nodes.front();
+    const std::string lowered = lower_ascii(child_name);
+    for (const auto& part : content) {
+        if (part.kind == XmlPart::Kind::Element &&
+            (lowered.empty() || local_name(part.element->name) == lowered)) {
+            return part.element.get();
+        }
+    }
+    return nullptr;
 }
 
 Timecode Timecode::parse(const std::string& value) {
-    static const std::regex pattern("^([0-9]{1,3}):([0-9]{2}):([0-9]{2}):([0-9]{1,3})$");
-    std::smatch match;
-    if (!std::regex_match(value, match, pattern)) throw std::invalid_argument("invalid DetX timecode '" + value + "'; expected HH:MM:SS:FF");
-    Timecode tc{std::stoi(match[1]), std::stoi(match[2]), std::stoi(match[3]), std::stoi(match[4])};
-    if (tc.minutes >= 60 || tc.seconds >= 60) throw std::invalid_argument("minutes and seconds must be between 0 and 59");
-    return tc;
+    const char* p = value.data();
+    const char* end = p + value.size();
+    auto read_digits = [&](int min_len, int max_len, int& out_val) -> bool {
+        const char* start = p;
+        int acc = 0;
+        while (p < end && *p >= '0' && *p <= '9') {
+            if (p - start >= max_len) return false;
+            acc = acc * 10 + (*p - '0');
+            ++p;
+        }
+        if (p - start < min_len) return false;
+        out_val = acc;
+        return true;
+    };
+    int h = 0, m = 0, s = 0, f = 0;
+    if (!read_digits(1, 3, h) || p == end || *p++ != ':' ||
+        !read_digits(2, 2, m) || p == end || *p++ != ':' ||
+        !read_digits(2, 2, s) || p == end || *p++ != ':' ||
+        !read_digits(1, 3, f) || p != end) {
+        throw std::invalid_argument("invalid DetX timecode '" + value + "'; expected HH:MM:SS:FF");
+    }
+    if (m >= 60 || s >= 60) throw std::invalid_argument("minutes and seconds must be between 0 and 59");
+    return Timecode{h, m, s, f};
 }
 std::int64_t Timecode::to_frames(int fps) const {
     if (fps <= 0) throw std::invalid_argument("fps must be a positive integer");
@@ -514,6 +544,22 @@ Timecode Timecode::from_frames(std::int64_t count, int fps) {
     return {static_cast<int>(hours_all), minutes, seconds, frames};
 }
 std::string Timecode::format() const {
+    if (hours >= 0 && hours < 100 && minutes >= 0 && minutes < 100 &&
+        seconds >= 0 && seconds < 100 && frames >= 0 && frames < 100) {
+        char buf[11];
+        buf[0] = static_cast<char>('0' + hours / 10);
+        buf[1] = static_cast<char>('0' + hours % 10);
+        buf[2] = ':';
+        buf[3] = static_cast<char>('0' + minutes / 10);
+        buf[4] = static_cast<char>('0' + minutes % 10);
+        buf[5] = ':';
+        buf[6] = static_cast<char>('0' + seconds / 10);
+        buf[7] = static_cast<char>('0' + seconds % 10);
+        buf[8] = ':';
+        buf[9] = static_cast<char>('0' + frames / 10);
+        buf[10] = static_cast<char>('0' + frames % 10);
+        return std::string(buf, 11);
+    }
     std::ostringstream out;
     out.fill('0'); out.width(2); out << hours << ':';
     out.width(2); out << minutes << ':';
@@ -1120,6 +1166,25 @@ Role& DetxDocument::add_role(const std::string& id, const std::string& name, con
     return roles_.back();
 }
 
+void DetxDocument::set_role_name(const std::string& id, const std::string& name) {
+    if (id.empty() || name.empty()) throw std::invalid_argument("role id and name are required");
+    const auto found = std::find_if(roles_.begin(), roles_.end(), [&](const Role& role) { return role.id == id; });
+    if (found == roles_.end()) throw std::invalid_argument("role does not exist");
+    if (!found->element) throw std::invalid_argument("role is not attached to this DetX document");
+    found->element->set_attribute("name", name);
+    found->name = name;
+}
+
+void DetxDocument::set_role_color(const std::string& id, const std::string& color) {
+    if (id.empty()) throw std::invalid_argument("role id is required");
+    if (!valid_color(color)) throw std::invalid_argument("role color must be #RRGGBB");
+    const auto found = std::find_if(roles_.begin(), roles_.end(), [&](const Role& role) { return role.id == id; });
+    if (found == roles_.end()) throw std::invalid_argument("role does not exist");
+    if (!found->element) throw std::invalid_argument("role is not attached to this DetX document");
+    found->element->set_attribute("color", color);
+    found->color = color;
+}
+
 void DetxDocument::remove_role(const std::string& id) {
     if (std::any_of(lines_.begin(), lines_.end(), [&](const Line& line) { return line.role_id == id; }))
         throw std::invalid_argument("role is still assigned to one or more lines");
@@ -1197,27 +1262,35 @@ void DetxDocument::save(const std::filesystem::path& path, bool pretty_print) co
         throw std::runtime_error("cannot replace output file (Windows error " + std::to_string(code) + ")");
     }
 #else
-    const int file = ::open(temp.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0600);
-    if (file < 0) throw std::runtime_error("cannot create unique temporary output " + path_utf8(temp));
+    bool direct_write = false;
+    int file = ::open(temp.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0644);
+    if (file < 0 && (errno == EPERM || errno == EACCES)) {
+        file = ::open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
+        if (file >= 0) direct_write = true;
+    }
+    if (file < 0) throw std::runtime_error("cannot create output file " + path_utf8(path));
     std::size_t written_total = 0;
     while (written_total < data.size()) {
         const auto written = ::write(file, data.data() + written_total, data.size() - written_total);
         if (written < 0 && errno == EINTR) continue;
         if (written <= 0) {
-            const int error = errno; ::close(file); ::unlink(temp.c_str());
-            throw std::runtime_error("cannot write temporary output (error " + std::to_string(error) + ")");
+            const int error = errno; ::close(file);
+            if (!direct_write) ::unlink(temp.c_str());
+            throw std::runtime_error("cannot write output (error " + std::to_string(error) + ")");
         }
         written_total += static_cast<std::size_t>(written);
     }
-    if (::fsync(file) != 0) {
-        const int error = errno; ::close(file); ::unlink(temp.c_str());
-        throw std::runtime_error("cannot flush temporary output (error " + std::to_string(error) + ")");
+    if (::fsync(file) != 0 && errno != EINVAL && errno != ENOTSUP) {
+        const int error = errno; ::close(file);
+        if (!direct_write) ::unlink(temp.c_str());
+        throw std::runtime_error("cannot flush output (error " + std::to_string(error) + ")");
     }
     if (::close(file) != 0) {
-        const int error = errno; ::unlink(temp.c_str());
-        throw std::runtime_error("cannot close temporary output (error " + std::to_string(error) + ")");
+        const int error = errno;
+        if (!direct_write) ::unlink(temp.c_str());
+        throw std::runtime_error("cannot close output (error " + std::to_string(error) + ")");
     }
-    if (::rename(temp.c_str(), path.c_str()) != 0) {
+    if (!direct_write && ::rename(temp.c_str(), path.c_str()) != 0) {
         const int error = errno; ::unlink(temp.c_str());
         throw std::runtime_error("cannot replace output (error " + std::to_string(error) + ")");
     }

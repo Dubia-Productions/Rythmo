@@ -132,6 +132,13 @@ int main() {
     editing.set_video_reference("/media/source.mov");
     assert(editing.root().first_child("header")->first_child("videofile") != nullptr);
     editing.add_role("support", "Support", "#00AA55");
+    editing.set_role_name("support", "Support Principal");
+    editing.set_role_color("support", "#747DFF");
+    assert(editing.roles().back().name == "Support Principal");
+    assert(editing.roles().back().color == "#747DFF");
+    const auto reloaded_roles = DetxDocument::from_string(editing.serialize());
+    assert(reloaded_roles.roles().back().name == "Support Principal");
+    assert(reloaded_roles.roles().back().color == "#747DFF");
     auto& added = editing.add_line("support", 2, Timecode{0, 0, 1, 12}, Timecode{0, 0, 2, 12});
     assert(editing.lines().size() == 2 && added.role_id == "support");
     bool used_role_rejected = false;

@@ -153,6 +153,8 @@ public:
     Line& add_line(const std::string& role_id, int track, const Timecode& in, const Timecode& out);
     void remove_line(Line& line);
     Role& add_role(const std::string& id, const std::string& name, const std::string& color = "#808080");
+    void set_role_name(const std::string& id, const std::string& name);
+    void set_role_color(const std::string& id, const std::string& color);
     void remove_role(const std::string& id);
     std::vector<std::pair<std::string, std::string>> import_roles(const DetxDocument& other);
     void save(const std::filesystem::path& path, bool pretty_print = false) const;

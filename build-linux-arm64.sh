@@ -19,7 +19,7 @@ install_deps() {
   if command -v apt-get >/dev/null 2>&1; then
     SUDO=""; [ "$(id -u)" -eq 0 ] || SUDO=sudo
     $SUDO apt-get update
-    $SUDO apt-get install -y build-essential cmake ninja-build pkg-config curl libexpat1-dev libgl1-mesa-dev libegl1-mesa-dev libopengl-dev libxkbcommon-dev libxkbcommon-x11-dev libxcb-cursor-dev qt6-base-dev qt6-multimedia-dev ffmpeg
+    $SUDO apt-get install -y build-essential cmake ninja-build pkg-config curl libexpat1-dev libgl1-mesa-dev libegl1-mesa-dev libopengl-dev libxkbcommon-dev libxkbcommon-x11-dev libxcb-cursor-dev qt6-base-dev qt6-multimedia-dev ffmpeg python3 python3-venv
   elif command -v dnf >/dev/null 2>&1; then
     SUDO=""; [ "$(id -u)" -eq 0 ] || SUDO=sudo
     $SUDO dnf install -y gcc-c++ make cmake ninja-build pkgconf-pkg-config curl expat-devel qt6-qtbase-devel qt6-qtmultimedia-devel ffmpeg
@@ -63,10 +63,10 @@ if [ "${QT_MAJOR:-0}" -lt 6 ] || { [ "${QT_MAJOR:-0}" -eq 6 ] && [ "${QT_MINOR:-
   QT_PREFIX=${QT_CONFIG%/lib/cmake/Qt6/Qt6Config.cmake}
 fi
 if [ -n "$QT_PREFIX" ]; then
-  "$CMAKE_CMD" -S "$ROOT" -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON "-DRYTHMO_VERSION=${RYTHMO_VERSION:-0.4.8}" "-DCMAKE_PREFIX_PATH=$QT_PREFIX" \
+  "$CMAKE_CMD" -S "$ROOT" -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON "-DRYTHMO_VERSION=${RYTHMO_VERSION:-0.5.0-dev}" "-DCMAKE_PREFIX_PATH=$QT_PREFIX" \
     "-DRYTHMO_PYTHON_RUNTIME_ARCHIVE=$ROOT/build/tools/python-runtime/linux-arm64.tar.gz"
 else
-  "$CMAKE_CMD" -S "$ROOT" -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON "-DRYTHMO_VERSION=${RYTHMO_VERSION:-0.4.8}" \
+  "$CMAKE_CMD" -S "$ROOT" -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON "-DRYTHMO_VERSION=${RYTHMO_VERSION:-0.5.0-dev}" \
     "-DRYTHMO_PYTHON_RUNTIME_ARCHIVE=$ROOT/build/tools/python-runtime/linux-arm64.tar.gz"
 fi
 "$CMAKE_CMD" --build "$BUILD_DIR" --parallel
