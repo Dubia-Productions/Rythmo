@@ -36,7 +36,7 @@ jobs:
             arch: x64
             script: build-macos-intel.sh
           - name: macOS Apple Silicon
-            os: macos-15
+            os: macos-15-intel
             platform: macos
             arch: arm64
             script: build-macos-silicon.sh
@@ -86,7 +86,10 @@ jobs:
             build/tools/Qt/6.8.3
             build/tools/build-env
             ~/Library/Caches/Homebrew
-          key: qt-macos-${{ matrix.arch }}-6.8.3-${{ runner.os }}-${{ hashFiles('build-macos-*.sh') }}
+          key: qt-macos-universal-6.8.3-${{ runner.os }}-${{ hashFiles('build-macos-*.sh') }}
+          restore-keys: |
+            qt-macos-universal-6.8.3-${{ runner.os }}-
+            qt-macos-x64-6.8.3-${{ runner.os }}-
       - name: Cache Windows vcpkg dependencies
         if: runner.os == 'Windows'
         uses: actions/cache@v4
@@ -111,6 +114,8 @@ jobs:
       - name: Build and test on macOS or Linux
         if: runner.os != 'Windows'
         shell: bash
+        env:
+          RYTHMO_CROSS_COMPILE_ARM64: ${{ matrix.platform == 'macos' && matrix.arch == 'arm64' && '1' || '0' }}
         run: sh "${{ matrix.script }}"
 
       - name: Prepare Windows packages
@@ -201,11 +206,20 @@ jobs:
             [ -n "$binary" ] || { echo "Bundled $tool executable not found." >&2; exit 1; }
             install -m 755 "$binary" "$app/Contents/MacOS/$tool"
           done
-          encoders="$("$app/Contents/MacOS/ffmpeg" -hide_banner -encoders 2>&1)"
-          for encoder in libx264 libx265 libsvtav1 h264_videotoolbox hevc_videotoolbox; do
-            printf '%s\n' "$encoders" | grep -q "$encoder" || { echo "Bundled FFmpeg lacks $encoder." >&2; exit 1; }
-          done
-          "$app/Contents/MacOS/ffprobe" -version >/dev/null
+          if [ "$arch_name" = arm64 ] && [ "$(uname -m)" != arm64 ]; then
+            for bin in Rythmo ffmpeg ffprobe; do
+              lipo -archs "$app/Contents/MacOS/$bin" | grep -qw arm64 || { echo "Bundled $bin is not arm64." >&2; exit 1; }
+            done
+            for encoder in libx264 libx265 libsvtav1 h264_videotoolbox hevc_videotoolbox; do
+              LC_ALL=C grep -aq "$encoder" "$app/Contents/MacOS/ffmpeg" || { echo "Bundled arm64 FFmpeg lacks $encoder." >&2; exit 1; }
+            done
+          else
+            encoders="$("$app/Contents/MacOS/ffmpeg" -hide_banner -encoders 2>&1)"
+            for encoder in libx264 libx265 libsvtav1 h264_videotoolbox hevc_videotoolbox; do
+              printf '%s\n' "$encoders" | grep -q "$encoder" || { echo "Bundled FFmpeg lacks $encoder." >&2; exit 1; }
+            done
+            "$app/Contents/MacOS/ffprobe" -version >/dev/null
+          fi
           rm -rf "$ffmpeg_temp"
           codesign --force --deep --sign - --timestamp=none "$app"
           codesign --verify --deep --strict "$app"

@@ -7,9 +7,11 @@ ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 BUILD_DIR=${BUILD_DIR:-"$HOME/Library/Caches/Rythmo/build/release-macos-arm64"}
 HOST_ARCH=$(uname -m)
 [ "$(uname -s)" = Darwin ] || { echo "Ce script doit être lancé sur macOS." >&2; exit 1; }
-[ "$(sysctl -n hw.optional.arm64 2>/dev/null || echo 0)" = 1 ] || { echo "Ce script cible un Mac Apple Silicon." >&2; exit 1; }
-if [ "$HOST_ARCH" != arm64 ]; then exec arch -arm64 sh "$0" "$@"; fi
-[ "$HOST_ARCH" = arm64 ] || { echo "Ce script cible Apple Silicon (arm64), architecture détectée : $HOST_ARCH." >&2; exit 1; }
+if [ "${RYTHMO_CROSS_COMPILE_ARM64:-0}" != "1" ]; then
+  [ "$(sysctl -n hw.optional.arm64 2>/dev/null || echo 0)" = 1 ] || { echo "Ce script cible un Mac Apple Silicon." >&2; exit 1; }
+  if [ "$HOST_ARCH" != arm64 ]; then exec arch -arm64 sh "$0" "$@"; fi
+  [ "$HOST_ARCH" = arm64 ] || { echo "Ce script cible Apple Silicon (arm64), architecture détectée : $HOST_ARCH." >&2; exit 1; }
+fi
 
 if ! command -v xcode-select >/dev/null 2>&1 || ! xcode-select -p >/dev/null 2>&1; then
   echo "Installation des outils Apple Command Line Tools requise. Une fenêtre système va s'ouvrir."
@@ -20,28 +22,47 @@ fi
 if ! command -v brew >/dev/null 2>&1; then
   echo "Homebrew absent : installation officielle nécessaire (peut demander le mot de passe administrateur)."
   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-  if [ -x /opt/homebrew/bin/brew ]; then eval "$(/opt/homebrew/bin/brew shellenv)"; fi
+  if [ -x /opt/homebrew/bin/brew ]; then eval "$(/opt/homebrew/bin/brew shellenv)"; elif [ -x /usr/local/bin/brew ]; then eval "$(/usr/local/bin/brew shellenv)"; fi
 fi
 command -v brew >/dev/null 2>&1 || { echo "Homebrew n'a pas pu être installé." >&2; exit 1; }
-brew install cmake expat ffmpeg
-sh "$ROOT/prepare-python-runtime.sh" macos arm64
-command -v ffmpeg >/dev/null 2>&1 || { echo "FFmpeg ne s'est pas installé correctement." >&2; exit 1; }
-command -v ffprobe >/dev/null 2>&1 || { echo "ffprobe (fourni avec FFmpeg) est introuvable après l'installation." >&2; exit 1; }
-echo "FFmpeg installé : $(command -v ffmpeg)"
-TOOLENV="$ROOT/build/tools/build-env"
-if [ ! -x "$TOOLENV/bin/aqt" ]; then
-  python3 -m venv "$TOOLENV"
-  "$TOOLENV/bin/python" -m pip install --upgrade pip aqtinstall
+if [ "$HOST_ARCH" = arm64 ]; then
+  brew install cmake expat ffmpeg
+  command -v ffmpeg >/dev/null 2>&1 || { echo "FFmpeg ne s'est pas installé correctement." >&2; exit 1; }
+  command -v ffprobe >/dev/null 2>&1 || { echo "ffprobe (fourni avec FFmpeg) est introuvable après l'installation." >&2; exit 1; }
+  echo "FFmpeg installé : $(command -v ffmpeg)"
+elif ! command -v cmake >/dev/null 2>&1; then
+  brew install cmake
 fi
-"$TOOLENV/bin/aqt" install-qt mac desktop 6.8.3 clang_64 --outputdir "$ROOT/build/tools/Qt" --modules qtmultimedia
-QT_CONFIG=$(find "$ROOT/build/tools/Qt/6.8.3" -path '*/lib/cmake/Qt6/Qt6Config.cmake' -print -quit)
+sh "$ROOT/prepare-python-runtime.sh" macos arm64
+TOOLENV="$ROOT/build/tools/build-env"
+QT_CONFIG=$(find "$ROOT/build/tools/Qt/6.8.3" -path '*/lib/cmake/Qt6/Qt6Config.cmake' -print -quit 2>/dev/null || true)
+QT_MM_CONFIG=$(find "$ROOT/build/tools/Qt/6.8.3" -path '*/lib/cmake/Qt6Multimedia/Qt6MultimediaConfig.cmake' -print -quit 2>/dev/null || true)
+if [ -z "$QT_CONFIG" ] || [ -z "$QT_MM_CONFIG" ]; then
+  if [ ! -x "$TOOLENV/bin/aqt" ]; then
+    python3 -m venv "$TOOLENV"
+    "$TOOLENV/bin/python" -m pip install --upgrade pip aqtinstall
+  fi
+  "$TOOLENV/bin/aqt" install-qt mac desktop 6.8.3 clang_64 --outputdir "$ROOT/build/tools/Qt" --modules qtmultimedia
+  QT_CONFIG=$(find "$ROOT/build/tools/Qt/6.8.3" -path '*/lib/cmake/Qt6/Qt6Config.cmake' -print -quit)
+fi
 [ -n "$QT_CONFIG" ] || { echo "Échec de l’installation du SDK Qt 6.8.3 macOS." >&2; exit 1; }
 QT_PREFIX=${QT_CONFIG%/lib/cmake/Qt6/Qt6Config.cmake}
 export CMAKE_PREFIX_PATH="$QT_PREFIX${CMAKE_PREFIX_PATH:+:$CMAKE_PREFIX_PATH}"
-cmake -S "$ROOT" -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON "-DRYTHMO_VERSION=${RYTHMO_VERSION:-0.5.0-dev}" -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 \
-  "-DRYTHMO_PYTHON_RUNTIME_ARCHIVE=$ROOT/build/tools/python-runtime/macos-arm64.tar.gz"
-cmake --build "$BUILD_DIR" --parallel
-ctest --test-dir "$BUILD_DIR" --output-on-failure
+MACOS_SDK=$(xcrun --show-sdk-path)
+if [ "$HOST_ARCH" = arm64 ]; then
+  cmake -S "$ROOT" -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON \
+    "-DRYTHMO_VERSION=${RYTHMO_VERSION:-0.5.0-dev}" -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 \
+    "-DRYTHMO_PYTHON_RUNTIME_ARCHIVE=$ROOT/build/tools/python-runtime/macos-arm64.tar.gz"
+  cmake --build "$BUILD_DIR" --parallel
+  ctest --test-dir "$BUILD_DIR" --output-on-failure
+else
+  cmake -S "$ROOT" -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF \
+    "-DRYTHMO_VERSION=${RYTHMO_VERSION:-0.5.0-dev}" -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 \
+    "-DCMAKE_IGNORE_PREFIX_PATH=/usr/local;/opt/homebrew" \
+    "-DEXPAT_INCLUDE_DIR=$MACOS_SDK/usr/include" "-DEXPAT_LIBRARY=$MACOS_SDK/usr/lib/libexpat.tbd" \
+    "-DRYTHMO_PYTHON_RUNTIME_ARCHIVE=$ROOT/build/tools/python-runtime/macos-arm64.tar.gz"
+  cmake --build "$BUILD_DIR" --parallel
+fi
 APP="$BUILD_DIR/Rythmo.app"
 [ -d "$APP" ] || { echo "Bundle macOS absent après compilation : $APP" >&2; exit 1; }
 DEPLOYQT="$QT_PREFIX/bin/macdeployqt"
@@ -55,6 +76,7 @@ PLIST="$APP/Contents/Info.plist"
 EXECUTABLE="$APP/Contents/MacOS/Rythmo"
 [ -f "$PLIST" ] || { echo "Info.plist absent du bundle : $PLIST" >&2; exit 1; }
 [ -x "$EXECUTABLE" ] || { echo "Exécutable macOS absent ou non exécutable : $EXECUTABLE" >&2; exit 1; }
+lipo -archs "$EXECUTABLE" | grep -qw arm64 || { echo "Exécutable macOS non compilé pour arm64 : $(lipo -archs "$EXECUTABLE")" >&2; exit 1; }
 plutil -lint "$PLIST"
 BUNDLE_ID=$(plutil -extract CFBundleIdentifier raw -o - "$PLIST")
 [ "$BUNDLE_ID" = "com.dubiaproductions.rythmo" ] || { echo "Identifiant de bundle inattendu : $BUNDLE_ID" >&2; exit 1; }

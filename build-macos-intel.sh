@@ -27,12 +27,16 @@ command -v ffmpeg >/dev/null 2>&1 || { echo "FFmpeg ne s'est pas installé corre
 command -v ffprobe >/dev/null 2>&1 || { echo "ffprobe (fourni avec FFmpeg) est introuvable après l'installation." >&2; exit 1; }
 echo "FFmpeg installé : $(command -v ffmpeg)"
 TOOLENV="$ROOT/build/tools/build-env"
-if [ ! -x "$TOOLENV/bin/aqt" ]; then
-  python3 -m venv "$TOOLENV"
-  "$TOOLENV/bin/python" -m pip install --upgrade pip aqtinstall
+QT_CONFIG=$(find "$ROOT/build/tools/Qt/6.8.3" -path '*/lib/cmake/Qt6/Qt6Config.cmake' -print -quit 2>/dev/null || true)
+QT_MM_CONFIG=$(find "$ROOT/build/tools/Qt/6.8.3" -path '*/lib/cmake/Qt6Multimedia/Qt6MultimediaConfig.cmake' -print -quit 2>/dev/null || true)
+if [ -z "$QT_CONFIG" ] || [ -z "$QT_MM_CONFIG" ]; then
+  if [ ! -x "$TOOLENV/bin/aqt" ]; then
+    python3 -m venv "$TOOLENV"
+    "$TOOLENV/bin/python" -m pip install --upgrade pip aqtinstall
+  fi
+  "$TOOLENV/bin/aqt" install-qt mac desktop 6.8.3 clang_64 --outputdir "$ROOT/build/tools/Qt" --modules qtmultimedia
+  QT_CONFIG=$(find "$ROOT/build/tools/Qt/6.8.3" -path '*/lib/cmake/Qt6/Qt6Config.cmake' -print -quit)
 fi
-"$TOOLENV/bin/aqt" install-qt mac desktop 6.8.3 clang_64 --outputdir "$ROOT/build/tools/Qt" --modules qtmultimedia
-QT_CONFIG=$(find "$ROOT/build/tools/Qt/6.8.3" -path '*/lib/cmake/Qt6/Qt6Config.cmake' -print -quit)
 [ -n "$QT_CONFIG" ] || { echo "Échec de l’installation du SDK Qt 6.8.3 macOS." >&2; exit 1; }
 QT_PREFIX=${QT_CONFIG%/lib/cmake/Qt6/Qt6Config.cmake}
 export CMAKE_PREFIX_PATH="$QT_PREFIX${CMAKE_PREFIX_PATH:+:$CMAKE_PREFIX_PATH}"
