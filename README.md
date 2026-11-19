@@ -1,65 +1,89 @@
+<div align="center">
+
+<img src="resources/RYTHMO_LOGO_PNG-ROUNDED.png" alt="Rythmo" width="110" />
+
 # Rythmo
 
-**Le logiciel de création de bande rythmo et de séparation vocale par excellence.**
+**Création de bande rythmo et séparation vocale, 100 % en local.**
 
-Rythmo est un logiciel de postproduction local disponible sur Windows, macOS et Linux. Vos projets, médias et traitements restent sur votre appareil.
+[![Releases](https://img.shields.io/github/v/release/Dubia-Productions/Rythmo?label=Release&style=flat-square)](https://github.com/Dubia-Productions/Rythmo/releases)
+![Plateformes](https://img.shields.io/badge/Plateformes-Windows%20%C2%B7%20macOS%20%C2%B7%20Linux-1f2937?style=flat-square)
+![C++17](https://img.shields.io/badge/C%2B%2B-17-00599C?style=flat-square)
+![Qt6](https://img.shields.io/badge/Qt-6.5%2B-41CD52?style=flat-square)
+
+[Télécharger](https://github.com/Dubia-Productions/Rythmo/releases) · [Fonctionnalités](#fonctionnalités) · [Raccourcis](#raccourcis-et-gestes) · [Compilation](#compilation)
+
+</div>
+
+---
+
+**Rythmo** est un logiciel de postproduction conçu pour le doublage et le traitement audio local. Vos projets, vidéos et traitements restent entièrement sur votre machine — disponible sur **Windows**, **macOS** et **Linux**.
 
 ## Fonctionnalités
 
-- Créer, ouvrir et enregistrer des projets DetX.
-- Synchroniser les répliques, rôles et quatre pistes avec une vidéo.
-- Lire la vidéo dans l’éditeur ou en plein écran.
-- Exporter la bande rythmo en 720p à 4K, jusqu’à 60 images/s, avec les encodeurs disponibles sur l’appareil.
-- Activer ou désactiver les effets visuels à l’export.
-- Séparer une scène localement en deux fichiers : voix et musique/effets, avec trois profils RoFormer.
-- Reprendre un projet récent.
-- Vérifier les mises à jour en ligne, uniquement si une connexion est détectée. La mise à jour reste facultative, le paquet est vérifié avant installation et l’application redémarre automatiquement.
-
-Les modèles de séparation se téléchargent à la première utilisation du profil. FFmpeg est inclus dans les paquets de l’application.
+- **Bande rythmo & DetX** — Créez, ouvrez et enregistrez des projets DetX ; synchronisez répliques, rôles et quatre pistes directement sur la vidéo.
+- **Lecture & édition fluide** — Prévisualisez dans l'éditeur ou en plein écran, scindez les répliques, ajoutez des changements de plan et éditez le texte directement sur la bande.
+- **Export vidéo jusqu'en 4K** — Exportez votre bande rythmo de 720p à 4K jusqu'à 60 ips avec les encodeurs matériels/logiciels disponibles sur l'appareil et les effets visuels activables à la carte (FFmpeg inclus).
+- **Séparation de voix IA** — Isolez localement les voix de la musique et des effets (M&E) grâce à trois profils **RoFormer** (Rapide, Équilibré, Studio) ou à un modèle `.ckpt` personnalisé. Les modèles sont téléchargés uniquement à la première utilisation.
+- **Mises à jour discrètes** — Vérification en ligne facultative si une connexion est détectée, avec vérification du paquet avant installation.
 
 ## Démarrage rapide
 
-1. Ouvrir **Bande Rythmo** et créer un projet ou ouvrir un fichier DetX.
-2. Choisir la vidéo source, puis ajouter rôles et répliques.
-3. Cliquer sur **Exporter** pour choisir la résolution, l’encodeur et les effets.
-4. Ouvrir **Séparation de voix**, choisir un profil et ajouter des fichiers.
+1. Ouvrez **Bande Rythmo** pour créer un projet ou charger un fichier `.detx`.
+2. Associez la vidéo source, puis ajoutez vos rôles et répliques sur la bande.
+3. Cliquez sur **Exporter** (<kbd>Ctrl</kbd>+<kbd>E</kbd> / <kbd>⌘</kbd>+<kbd>E</kbd>) pour choisir la résolution, l'encodeur et les effets.
+4. Ouvrez **Séparation de voix**, sélectionnez un profil RoFormer et déposez vos fichiers audio/vidéo.
 
 ## Raccourcis et gestes
 
-| Action | Touche ou geste |
+### Lecture & navigation
+
+| Action | Raccourci / Geste |
 | --- | --- |
-| Lecture / pause | Espace |
-| Plein écran / quitter | F11 / Échap |
-| Ajouter une réplique à la position de lecture | Entrée sur la bande |
-| Modifier la réplique sélectionnée | F2 ou double-clic |
-| Supprimer la sélection | Suppr |
-| Scinder une réplique | Ctrl+K (⌘+K sur macOS) |
-| Ajouter un changement de plan à la position de lecture | Ctrl+M (⌘+M sur macOS) |
-| Avancer ou reculer d’une image | Alt+flèches ou Maj+flèches |
-| Zoomer sur la bande | + / - ou molette |
-| Naviguer sur la bande | Défilement à deux doigts du trackpad |
-| Annuler / rétablir | Ctrl+Z / Ctrl+Maj+Z ou ⌘+Z / ⌘+Maj+Z |
+| Lecture / Pause | <kbd>Espace</kbd> |
+| Plein écran / Quitter | <kbd>F11</kbd> / <kbd>Échap</kbd> |
+| Réplique ou plan précédent / suivant | <kbd>←</kbd> / <kbd>→</kbd> |
+| Avancer ou reculer d'une image | <kbd>Alt</kbd>+<kbd>←</kbd> <kbd>→</kbd> ou <kbd>Maj</kbd>+<kbd>←</kbd> <kbd>→</kbd> |
+| Zoomer / Dézoomer sur la bande | <kbd>+</kbd> / <kbd>-</kbd> ou molette |
+| Naviguer dans le temps | Défilement à deux doigts (trackpad) ou clic sur la règle |
 
-Un clic droit sur la bande ajoute une réplique à l’emplacement choisi. Sur une réplique, il ouvre les commandes de modification et de suppression. Dans le champ de texte, Entrée valide la saisie. Ctrl+K scinde une réplique ; Ctrl+M ajoute un changement de plan au timecode de lecture.
+### Édition sur la bande
 
-## Téléchargements et compatibilité
+| Action | Raccourci / Geste |
+| --- | --- |
+| Insérer une réplique à la barre rouge | <kbd>Entrée</kbd> sur la bande (ou <kbd>Ctrl</kbd>+<kbd>Maj</kbd>+<kbd>N</kbd> / <kbd>⌘</kbd>+<kbd>Maj</kbd>+<kbd>N</kbd>) |
+| Éditer la réplique sélectionnée | <kbd>F2</kbd>, double-clic ou clic sur la sélection |
+| Passer à la réplique suivante / précédente (en édition) | <kbd>Tab</kbd> / <kbd>Maj</kbd>+<kbd>Tab</kbd> |
+| Scinder une réplique | <kbd>Ctrl</kbd>+<kbd>K</kbd> / <kbd>⌘</kbd>+<kbd>K</kbd> |
+| Ajouter un changement de plan | <kbd>Ctrl</kbd>+<kbd>M</kbd> / <kbd>⌘</kbd>+<kbd>M</kbd> |
+| Supprimer la sélection | <kbd>Suppr</kbd> / <kbd>Retour arrière</kbd> |
+| Annuler / Rétablir | <kbd>Ctrl</kbd>+<kbd>Z</kbd> · <kbd>Ctrl</kbd>+<kbd>Maj</kbd>+<kbd>Z</kbd> / <kbd>⌘</kbd>+<kbd>Z</kbd> · <kbd>⌘</kbd>+<kbd>Maj</kbd>+<kbd>Z</kbd> |
 
-Chaque release fournit :
+### Fichiers
 
-- **Windows x64 et ARM64** : installateur `.exe` téléchargeable directement et archive portable `.zip`.
-- **macOS Intel et Apple Silicon** : un seul ZIP contenant directement Rythmo.app.
-- **Linux x64 et ARM64** : archive portable .tar.gz.
+| Action | Raccourci |
+| --- | --- |
+| Ouvrir / Enregistrer / Enregistrer sous | <kbd>Ctrl</kbd>+<kbd>O</kbd> · <kbd>S</kbd> · <kbd>Maj</kbd>+<kbd>S</kbd> (ou <kbd>⌘</kbd>) |
+| Exporter la vidéo rythmo | <kbd>Ctrl</kbd>+<kbd>E</kbd> / <kbd>⌘</kbd>+<kbd>E</kbd> |
 
-La version macOS utilise Qt 6.8.3, compilé avec une cible minimale **macOS 12 (Monterey)**. Les Mac Intel sont compilés nativement, mais macOS Sierra (10.12) et les versions 10.13 à 11 ne sont pas compatibles avec cette base Qt. Les prendre en charge exigerait un portage séparé vers une ancienne version de Qt et des dépendances IA compatibles.
+> **Astuce :** Un clic droit sur la bande ajoute une réplique à l'emplacement cliqué ; sur une réplique existante, il ouvre les options de modification et de suppression. Dans le champ de texte, <kbd>Entrée</kbd> valide la saisie.
+
+## Téléchargement et compatibilité
+
+Les paquets prêts à l'emploi sont disponibles dans les [GitHub Releases](https://github.com/Dubia-Productions/Rythmo/releases) :
+
+| Plateforme | Architectures | Format | Notes |
+| --- | --- | --- | --- |
+| **Windows** | x64, ARM64 | Installateur `.exe` / Archive `.zip` | FFmpeg inclus |
+| **macOS** | Apple Silicon, Intel | Archive `.zip` (`Rythmo.app`) | **macOS 12 (Monterey)** minimum |
+| **Linux** | x64, ARM64 | Archive portable `.tar.gz` | FFmpeg inclus |
 
 ## Compilation
 
-Le workflow GitHub Actions compile les six cibles en parallèle sur les runners x64 et ARM64, met en cache Qt, les outils et les runtimes Python, et publie les paquets lorsqu’un tag vX.Y.Z est poussé. Les exécutions de branche plus anciennes sont annulées lorsqu’un nouveau commit arrive.
+**Prérequis :** CMake 3.25+, Qt 6.5+ (`Widgets`, `Multimedia`, `MultimediaWidgets`, `Network`), Expat et un compilateur C++17.
 
-Compilation locale : CMake 3.25+, Qt 6.5+ (Widgets, Multimedia, MultimediaWidgets et Network), Expat et un compilateur C++17.
-
-~~~sh
+```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
 ctest --test-dir build --output-on-failure
-~~~
+```
